@@ -1,0 +1,3 @@
+# 2023-01-20
+
+Quick and fun one today -- I added a "clowny" environment. It's a circus/carnival themed scene with its own lighting patterns and playlist. Sometimes you just need a silly environment for those chaotic D&D moments when the party does something completely unexpected. The whole script came in at about 79 lines, nothing fancy, but it fills a gap in the collection nicely.

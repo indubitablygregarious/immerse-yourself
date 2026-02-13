@@ -1,0 +1,507 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/immerse-tauri/tauri.conf.json'
+  workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: 'Upload to TestFlight'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: rust/immerse-tauri/ui/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/immerse-tauri
+            rust/immerse-core
+          cache-targets: true
+          cache-all-crates: true
+          shared-key: ios-build
+
+      - name: Cache Tauri CLI
+        id: cache-tauri-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri
+          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Tauri CLI
+        if: steps.cache-tauri-cli.outputs.cache-hit != 'true'
+        run: |
+          # Use cargo-binstall for pre-built binary (~10s vs ~8min compiling)
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall tauri-cli --no-confirm
+
+      - name: Install frontend dependencies
+        working-directory: rust/immerse-tauri/ui
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: rust/immerse-tauri/ui
+        run: npm run build
+
+      - name: Validate signing secrets
+        run: |
+          MISSING=""
+          if [ -z "$APPLE_DEVELOPMENT_TEAM" ]; then MISSING="$MISSING APPLE_TEAM_ID"; fi
+          if [ -z "${{ secrets.APPLE_CERTIFICATE_P12 }}" ]; then MISSING="$MISSING APPLE_CERTIFICATE_P12"; fi
+          if [ -z "${{ secrets.APPLE_PROVISIONING_PROFILE }}" ]; then MISSING="$MISSING APPLE_PROVISIONING_PROFILE"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required GitHub secrets:$MISSING"
+            echo "Configure these in Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+          echo "All required signing secrets are configured"
+
+      - name: Install Apple certificate and provisioning profile
+        id: install-signing
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          # Create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          PROVISIONING_PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # Decode files from secrets
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROVISIONING_PROFILE_PATH"
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate to keychain
+          security import "$CERTIFICATE_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          # Allow codesign to access keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add keychain to search list (prepend, don't replace existing keychains)
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+
+          # Install provisioning profile with UUID filename (required by Xcode)
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          PROFILE_PLIST=$(security cms -D -i "$PROVISIONING_PROFILE_PATH")
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$PROFILE_PLIST")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" /dev/stdin <<< "$PROFILE_PLIST")
+          cp "$PROVISIONING_PROFILE_PATH" \
+            ~/Library/MobileDevice/Provisioning\ Profiles/"$PROFILE_UUID".mobileprovision
+
+          echo "Installed provisioning profile:"
+          echo "  UUID: $PROFILE_UUID"
+          echo "  Name: $PROFILE_NAME"
+
+          # Export for use in later steps
+          echo "profile_uuid=$PROFILE_UUID" >> $GITHUB_OUTPUT
+          echo "profile_name=$PROFILE_NAME" >> $GITHUB_OUTPUT
+
+          # Detect signing identity from keychain
+          SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "Signing identity: $SIGNING_IDENTITY"
+          echo "signing_identity=$SIGNING_IDENTITY" >> $GITHUB_OUTPUT
+
+          # Verify certificate was imported
+          echo "Certificates in keychain:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          # Verify provisioning profile
+          echo "Installed profiles:"
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Initialize iOS project
+        working-directory: rust/immerse-tauri
+        run: cargo tauri ios init
+
+      - name: Bundle config files into iOS project
+        working-directory: rust/immerse-tauri
+        run: |
+          # Tauri's bundle.resources doesn't reliably work on iOS yet.
+          # Workaround: inject env_conf/ and sound_conf/ YAML files into the
+          # generated Xcode project so they end up in the .app bundle.
+          #
+          # Two-pronged approach:
+          # 1. Copy into the Xcode source tree + add to pbxproj as folder
+          #    references in "Copy Bundle Resources" build phase.
+          # 2. Also copy into gen/apple/Assets/ which Tauri may already
+          #    include in the bundle (for resource_dir resolution).
+
+          PBXPROJ="gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
+
+          # Discover the iOS source directory name (varies by Tauri version)
+          XCODE_SRC=""
+          for candidate in "gen/apple/immerse-tauri_iOS" "gen/apple/Sources/immerse-tauri" "gen/apple/Sources"; do
+            if [ -d "$candidate" ]; then
+              XCODE_SRC="$candidate"
+              break
+            fi
+          done
+          if [ -z "$XCODE_SRC" ]; then
+            echo "Warning: Could not find Xcode source directory, using gen/apple"
+            echo "Directory structure:"
+            find gen/apple -type d -maxdepth 3
+            XCODE_SRC="gen/apple"
+          fi
+          echo "Using Xcode source dir: $XCODE_SRC"
+
+          # Copy YAML config directories into the Xcode source tree
+          echo "Copying env_conf/ YAML files into $XCODE_SRC..."
+          mkdir -p "$XCODE_SRC/env_conf"
+          cp ../../env_conf/*.yaml "$XCODE_SRC/env_conf/"
+          ENV_COUNT=$(ls "$XCODE_SRC/env_conf/"*.yaml 2>/dev/null | wc -l)
+          echo "  Copied $ENV_COUNT env_conf files"
+
+          echo "Copying sound_conf/ YAML files into $XCODE_SRC..."
+          mkdir -p "$XCODE_SRC/sound_conf"
+          cp ../../sound_conf/*.yaml "$XCODE_SRC/sound_conf/"
+          SND_COUNT=$(ls "$XCODE_SRC/sound_conf/"*.yaml 2>/dev/null | wc -l)
+          echo "  Copied $SND_COUNT sound_conf files"
+
+          # Also copy into Assets/ for Tauri resource_dir resolution
+          echo "Copying into gen/apple/Assets/ for resource_dir fallback..."
+          mkdir -p gen/apple/Assets/env_conf
+          mkdir -p gen/apple/Assets/sound_conf
+          cp ../../env_conf/*.yaml gen/apple/Assets/env_conf/
+          cp ../../sound_conf/*.yaml gen/apple/Assets/sound_conf/
+
+          # Inject folder references into pbxproj so Xcode includes them
+          # in the "Copy Bundle Resources" build phase
+          python3 << 'PYEOF'
+          import uuid
+          import re
+          import sys
+
+          pbxproj = "gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
+          with open(pbxproj) as f:
+              content = f.read()
+
+          def make_uuid():
+              """Generate a 24-char uppercase hex UUID for pbxproj."""
+              return uuid.uuid4().hex[:24].upper()
+
+          # Generate IDs for env_conf and sound_conf folder references
+          folders = ["env_conf", "sound_conf"]
+          file_ref_ids = {name: make_uuid() for name in folders}
+          build_file_ids = {name: make_uuid() for name in folders}
+
+          # Detect the iOS source directory name relative to gen/apple/
+          import os
+          xcode_src_rel = None
+          for candidate in ["immerse-tauri_iOS", "Sources/immerse-tauri", "Sources"]:
+              if os.path.isdir(os.path.join("gen/apple", candidate)):
+                  xcode_src_rel = candidate
+                  break
+          if not xcode_src_rel:
+              xcode_src_rel = "."
+          print(f"Xcode source dir relative to project: {xcode_src_rel}")
+
+          # 1. Add PBXFileReference entries (folder references)
+          #    Use sourceTree = SOURCE_ROOT so paths resolve from gen/apple/
+          ref_lines = ""
+          for name in folders:
+              rid = file_ref_ids[name]
+              folder_path = f"{xcode_src_rel}/{name}" if xcode_src_rel != "." else name
+              ref_lines += (
+                  f'\t\t{rid} /* {name} */ = '
+                  f'{{isa = PBXFileReference; lastKnownFileType = folder; '
+                  f'path = "{folder_path}"; sourceTree = SOURCE_ROOT; }};\n'
+              )
+
+          marker = "/* Begin PBXFileReference section */\n"
+          if marker in content:
+              content = content.replace(marker, marker + ref_lines)
+              print("Added PBXFileReference entries")
+          else:
+              print("WARNING: PBXFileReference section not found", file=sys.stderr)
+
+          # 2. Add PBXBuildFile entries
+          build_lines = ""
+          for name in folders:
+              bid = build_file_ids[name]
+              rid = file_ref_ids[name]
+              build_lines += (
+                  f'\t\t{bid} /* {name} in Resources */ = '
+                  f'{{isa = PBXBuildFile; fileRef = {rid} /* {name} */; }};\n'
+              )
+
+          marker = "/* Begin PBXBuildFile section */\n"
+          if marker in content:
+              content = content.replace(marker, marker + build_lines)
+              print("Added PBXBuildFile entries")
+          else:
+              print("WARNING: PBXBuildFile section not found", file=sys.stderr)
+
+          # 3. Add folder refs to the main PBXGroup children list
+          # Find the first children = ( block and append our refs
+          children_entries = ""
+          for name in folders:
+              rid = file_ref_ids[name]
+              children_entries += f'\t\t\t\t{rid} /* {name} */,\n'
+
+          # Match the first "children = (" and insert after existing entries
+          pattern = re.compile(
+              r'(children\s*=\s*\(\n(?:\s*[A-F0-9]+ /\*[^,]+,\n)*)',
+              re.MULTILINE
+          )
+          match = pattern.search(content)
+          if match:
+              pos = match.end()
+              content = content[:pos] + children_entries + content[pos:]
+              print("Added folder refs to PBXGroup children")
+          else:
+              print("WARNING: Could not find PBXGroup children", file=sys.stderr)
+
+          # 4. Add build file refs to PBXResourcesBuildPhase
+          resource_entries = ""
+          for name in folders:
+              bid = build_file_ids[name]
+              resource_entries += f'\t\t\t\t{bid} /* {name} in Resources */,\n'
+
+          pattern = re.compile(
+              r'(isa\s*=\s*PBXResourcesBuildPhase.*?files\s*=\s*\(\n(?:\s*[A-F0-9]+ /\*[^,]+,\n)*)',
+              re.DOTALL
+          )
+          match = pattern.search(content)
+          if match:
+              pos = match.end()
+              content = content[:pos] + resource_entries + content[pos:]
+              print("Added entries to PBXResourcesBuildPhase")
+          else:
+              print("WARNING: PBXResourcesBuildPhase not found", file=sys.stderr)
+
+          with open(pbxproj, 'w') as f:
+              f.write(content)
+
+          print("Successfully injected env_conf and sound_conf into pbxproj")
+          PYEOF
+
+          echo "=== Verifying config injection ==="
+          grep -c 'env_conf\|sound_conf' "$PBXPROJ" && echo "Config references found in pbxproj" || echo "WARNING: config references not found in pbxproj"
+
+      - name: Configure manual code signing
+        working-directory: rust/immerse-tauri
+        env:
+          PROFILE_NAME: ${{ steps.install-signing.outputs.profile_name }}
+          SIGNING_IDENTITY: ${{ steps.install-signing.outputs.signing_identity }}
+        run: |
+          PBXPROJ="gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
+          if [ ! -f "$PBXPROJ" ]; then
+            echo "Error: pbxproj not found at $PBXPROJ"
+            exit 1
+          fi
+
+          echo "=== Current signing settings in pbxproj ==="
+          grep -n 'CODE_SIGN\|DEVELOPMENT_TEAM\|PROVISIONING_PROFILE\|SIGN_STYLE' "$PBXPROJ" || echo "(none found)"
+
+          # Use Python to reliably patch pbxproj (avoids macOS sed edge cases)
+          python3 << 'PYEOF'
+          import os
+
+          pbxproj = "gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
+          team_id = os.environ["APPLE_DEVELOPMENT_TEAM"]
+          profile_name = os.environ.get("PROFILE_NAME", "")
+          signing_id = os.environ.get("SIGNING_IDENTITY", "iPhone Distribution")
+
+          with open(pbxproj) as f:
+              lines = f.readlines()
+
+          new_lines = []
+          for line in lines:
+              # Fix empty DEVELOPMENT_TEAM
+              if "DEVELOPMENT_TEAM = " in line:
+                  if '""' in line:
+                      line = line.replace('""', f'"{team_id}"')
+                  elif "= ;" in line:
+                      line = line.replace("= ;", f'= "{team_id}";')
+
+              # After CODE_SIGN_IDENTITY, inject Manual style + profile specifier
+              if "CODE_SIGN_IDENTITY" in line and "ENTITLEMENTS" not in line:
+                  indent = line[:len(line) - len(line.lstrip())]
+                  # Update identity to match installed certificate
+                  if "iPhone Developer" in line:
+                      line = f'{indent}CODE_SIGN_IDENTITY = "{signing_id}";\n'
+                  new_lines.append(line)
+                  new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;\n')
+                  new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{profile_name}";\n')
+                  continue
+
+              new_lines.append(line)
+
+          with open(pbxproj, 'w') as f:
+              f.writelines(new_lines)
+
+          print(f"Patched pbxproj: Manual signing, identity={signing_id}, profile={profile_name}")
+          PYEOF
+
+          echo "=== Updated signing settings ==="
+          grep -n 'CODE_SIGN\|DEVELOPMENT_TEAM\|PROVISIONING_PROFILE\|SIGN_STYLE' "$PBXPROJ" || echo "(none found)"
+
+      - name: Add audio frameworks for rodio/cpal
+        working-directory: rust/immerse-tauri
+        run: |
+          # rodio uses cpal which uses coreaudio-rs on iOS. The Rust build
+          # emits cargo:rustc-link-lib=framework=AudioToolbox etc., but Xcode
+          # does the final link and doesn't see those directives. We need to
+          # add the frameworks to OTHER_LDFLAGS in the Xcode build settings.
+          python3 << 'PYEOF'
+          pbxproj = "gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
+          with open(pbxproj) as f:
+              lines = f.readlines()
+
+          LDFLAGS = (
+              '\t\t\t\tOTHER_LDFLAGS = (\n'
+              '\t\t\t\t\t"$(inherited)",\n'
+              '\t\t\t\t\t"-framework",\n'
+              '\t\t\t\t\tAudioToolbox,\n'
+              '\t\t\t\t\t"-framework",\n'
+              '\t\t\t\t\tCoreAudio,\n'
+              '\t\t\t\t\t"-framework",\n'
+              '\t\t\t\t\tAVFAudio,\n'
+              '\t\t\t\t);\n'
+          )
+
+          new_lines = []
+          in_settings = False
+          depth = 0
+          has_ldflags = False
+          settings_buf = []
+          patched = 0
+
+          for line in lines:
+              if 'buildSettings = {' in line:
+                  in_settings = True
+                  depth = 1
+                  has_ldflags = False
+                  settings_buf = [line]
+                  continue
+
+              if in_settings:
+                  settings_buf.append(line)
+                  depth += line.count('{') - line.count('}')
+                  if 'OTHER_LDFLAGS' in line:
+                      has_ldflags = True
+                  if depth <= 0:
+                      if not has_ldflags:
+                          closing = settings_buf.pop()
+                          settings_buf.append(LDFLAGS)
+                          settings_buf.append(closing)
+                          patched += 1
+                      new_lines.extend(settings_buf)
+                      in_settings = False
+                  continue
+
+              new_lines.append(line)
+
+          with open(pbxproj, 'w') as f:
+              f.writelines(new_lines)
+
+          print(f"Added AudioToolbox/CoreAudio/AVFAudio frameworks to {patched} build configurations")
+          PYEOF
+
+      - name: Create ExportOptions.plist
+        working-directory: rust/immerse-tauri
+        env:
+          PROFILE_NAME: ${{ steps.install-signing.outputs.profile_name }}
+        run: |
+          # ExportOptions.plist tells xcodebuild -exportArchive how to sign
+          cat > gen/apple/ExportOptions.plist << PLISTEOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>${APPLE_DEVELOPMENT_TEAM}</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.peterlesko.immerseyourself</key>
+                  <string>${PROFILE_NAME}</string>
+              </dict>
+          </dict>
+          </plist>
+          PLISTEOF
+          echo "Created ExportOptions.plist"
+          cat gen/apple/ExportOptions.plist
+
+      - name: Build iOS app (Release)
+        working-directory: rust/immerse-tauri
+        run: cargo tauri ios build --export-method app-store-connect
+
+      - name: Find IPA file
+        id: find-ipa
+        run: |
+          IPA_PATH=$(find rust/immerse-tauri/gen/apple -name "*.ipa" -type f | head -1)
+          echo "ipa_path=$IPA_PATH" >> $GITHUB_OUTPUT
+          echo "Found IPA: $IPA_PATH"
+
+      - name: Upload IPA as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: immerse-yourself-ios
+          path: ${{ steps.find-ipa.outputs.ipa_path }}
+          retention-days: 30
+
+      - name: Upload to TestFlight
+        if: ${{ github.event.inputs.upload_to_testflight != 'false' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file "${{ steps.find-ipa.outputs.ipa_path }}" \
+            --username "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD"
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true

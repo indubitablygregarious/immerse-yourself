@@ -1,0 +1,3 @@
+# 2023-03-31
+
+Came back after a couple months away and had a productive evening adding water and boat-themed environments. I created travel_boat for daytime sailing, travel_boat_night for nighttime voyages, and battle_water for ocean combat encounters. Also added a chilljazz environment for those laid-back tavern moments that need a different vibe from the regular chill scene. While I was at it, I tweaked the lighting on the town and travel environments and made some small adjustments to chill. Three commits, five new or modified files, and about 240 new lines of environment code. The nautical stuff was inspired by an upcoming pirate arc in our campaign.

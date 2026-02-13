@@ -1,0 +1,47 @@
+[package]
+name = "immerse-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core library for Immerse Yourself ambient environment system"
+
+[lib]
+name = "immerse_core"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+oauth2 = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+
+# Config file parsing
+rust-ini = "0.21"
+
+# Async utilities
+futures = "0.3"
+async-trait = "0.1"
+
+# For FFI
+libc = "0.2"
+
+# URL encoding and browser opening
+urlencoding = "2"
+open = "5"
+
+# Regex for URL parsing
+regex = "1"
+
+# Cross-platform audio playback (uses CoreAudio on iOS, ALSA/PulseAudio on Linux)
+rodio = "0.20"
+
+[dev-dependencies]
+tempfile = "3"
+tokio-test = "0.4"

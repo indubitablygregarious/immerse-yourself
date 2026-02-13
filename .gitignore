@@ -1,0 +1,64 @@
+# Spotify and WIZ bulb configuration (contains credentials)
+settings.ini
+.spotify*
+.wizbulb*
+.freesound*
+.cache
+
+# Freesound.org cached downloads
+freesound.org/
+
+# Security scan reports
+gitleaks-report.json
+
+# Audio files (not royalty-free, avoid copyright issues)
+*.mp3
+*.wav
+*.opus
+*.ogg
+*.flac
+*.aac
+*.m4a
+*.wma
+*.aiff
+*.aif
+*.swf.mp3
+
+# Python (archived, but ignore if any stray files appear)
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env_conf/freesound_**
+
+# Build artifacts
+dist/
+build/
+
+# Backup of original time variant files
+env_conf_backup/
+
+# Rust build artifacts
+rust/target/
+rust/Cargo.lock
+
+# Tauri/React frontend
+rust/immerse-tauri/ui/node_modules/
+rust/immerse-tauri/ui/dist/
+rust/immerse-tauri/ui/.vite/
+
+# iOS build artifacts
+ios/build/
+ios/*.xcworkspace
+ios/Pods/
+ios/DerivedData/
+
+# Atmosphere cache
+.atmosphere_cache/
+tests/e2e/output/
+
+
+# demo vids
+demo/output/

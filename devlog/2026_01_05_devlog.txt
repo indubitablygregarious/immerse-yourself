@@ -1,0 +1,3 @@
+# 2026-01-05
+
+Late night session wrapping up some polish. I created a custom startup environment that combines tavern lights with travel sounds so the app has a nice ambiance right when it launches. Tweaked the button text appearance to look better, updated the config loader, and cleaned up a couple of environment configs. Also took an updated screenshot to reflect the current state of the UI. Not a huge day, but the startup experience feels a lot more polished now.

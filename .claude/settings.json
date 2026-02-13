@@ -1,0 +1,11 @@
+# Add to .claude/settings.json:
+{
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "bash -c 'FILE=\"$CLAUDE_FILE\"; if [[ \"$FILE\" == *.rs ]]; then cargo-1.89 check --quiet 2>&1 | head -20; elif [[ \"$FILE\" == *.ts || \"$FILE\" == *.tsx ]]; then npx tsc --noEmit --pretty 2>&1 | head -20; fi'"
+      }
+    ]
+  }
+}

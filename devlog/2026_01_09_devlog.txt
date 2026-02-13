@@ -1,0 +1,3 @@
+# 2026-01-09
+
+Spent the day doing cleanup and fixing all the broken freesound URLs that I'd scattered across the environment configs during yesterday's creation frenzy. Touched over 70 files in that one commit alone, fixing URLs and improving atmosphere mixes for dozens of environments like graveyards, swamps, docks, temples, and prisons. I also built a freesound search tool so I can more easily find good audio clips going forward instead of manually browsing the site. Updated the docks and marketplace environments with richer soundscapes while I was at it. Quick fix early on for the volume slider that broke during the PyQt6 migration. Also improved the download queue and sound_conf resolver to be more robust with the updated URLs.

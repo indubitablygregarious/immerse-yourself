@@ -1,0 +1,3 @@
+# 2023-01-21
+
+Small but meaningful tweak to the chill environment today. I made it a little more chill -- adjusted the lighting to be softer and calmer. More importantly, I pulled out some hardcoded values into variables to make the whole thing more customizable. It's the kind of change that only touches 18 lines but makes future tweaking so much easier. Sometimes the best sessions are the ones where you make an existing thing better rather than adding something new.

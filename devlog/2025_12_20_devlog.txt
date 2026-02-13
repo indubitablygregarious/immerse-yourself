@@ -1,0 +1,3 @@
+# 2025-12-20
+
+Did a bulk migration across all 26 environment scripts to switch from the old playsound library to playsound3. The original playsound package must have broken or been deprecated, so I went through every single scene file and swapped out the imports and calls. It was a tedious but necessary bit of maintenance -- nothing exciting, just making sure everything still works with the updated dependency.

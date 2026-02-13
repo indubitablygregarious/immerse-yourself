@@ -1,0 +1,3 @@
+# 2023-05-19
+
+Added two new interior environments today -- a shop and a library. Both are around 104 lines each with their own lighting configurations and playlists. The shop has a warm, inviting feel while the library is quieter and more subdued. I also snuck in a quick fix to battle_water, just a one-line change to correct something that had been bugging me. These interior scenes are great for when the party decides to go shopping for gear or do some research, which happens more often than you'd think. Nice to have dedicated ambiance for those moments instead of just reusing the tavern or town settings.

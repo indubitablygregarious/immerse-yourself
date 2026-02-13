@@ -1,0 +1,44 @@
+#!/bin/bash
+# Pre-push hook: validate GitHub Actions workflows with Claude
+
+# Check if any workflow files are being pushed
+WORKFLOWS=$(git diff --name-only @{push}.. 2>/dev/null -- '.github/workflows/*.yml' '.github/workflows/*.yaml')
+
+# Fallback: diff against remote tracking branch
+if [ -z "$WORKFLOWS" ]; then
+    REMOTE_REF=$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null)
+    if [ -n "$REMOTE_REF" ]; then
+        WORKFLOWS=$(git diff --name-only "$REMOTE_REF"..HEAD -- '.github/workflows/*.yml' '.github/workflows/*.yaml')
+    fi
+fi
+
+if [ -z "$WORKFLOWS" ]; then
+    exit 0
+fi
+
+echo "🔍 Workflow files changed — running CI validation..."
+echo "   Files: $WORKFLOWS"
+echo ""
+
+OUTPUT=$(claude -p "Review the GitHub Actions workflow files in .github/workflows/ for: 1) Non-existent actions (verify action names are real), 2) macOS runner usage (flag 10x minute multiplier), 3) Missing caching, 4) Missing concurrency guards. Output issues as a checklist." --allowedTools "Read,Bash,Grep" --output-format json 2>&1)
+
+# claude --output-format json wraps the result in a JSON object with a "result" key
+RESULT=$(echo "$OUTPUT" | jq -r '.result // empty' 2>/dev/null)
+if [ -z "$RESULT" ]; then
+    RESULT="$OUTPUT"
+fi
+
+echo "$RESULT"
+echo ""
+
+# Let the user decide — don't block the push
+read -r -p "Proceed with push? [Y/n] " RESPONSE </dev/tty
+case "$RESPONSE" in
+    [nN])
+        echo "Push aborted."
+        exit 1
+        ;;
+    *)
+        exit 0
+        ;;
+esac

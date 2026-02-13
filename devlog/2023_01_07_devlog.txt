@@ -1,0 +1,3 @@
+# 2023-01-07
+
+Today was a big expansion day. I added several new environment scripts -- battle_dungeon, battle_forest, and summer_festival all came to life with their own lighting configs and Spotify playlists. I also went through and renamed the bulb collections across all 13 files to be more consistent, which touched basically every existing environment script. It was one of those sessions where I spent more time doing find-and-replace across files than writing new code, but it needed to happen. The battle scenes got their own distinct lighting styles, and the summer festival turned out to be a fun one to design with bright, warm colors. All told, over 400 lines added and 140 changed -- a productive evening.

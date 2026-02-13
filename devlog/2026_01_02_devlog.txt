@@ -1,0 +1,3 @@
+# 2026-01-02
+
+Big day -- I created a proper PyQt GUI launcher for the project. Moved all the environment scripts into an environments/ directory to keep things organized, then built out a full launcher.py with a tabbed interface for launching scenes. Also set up a CLAUDE.md for AI coding assistance, wrote up implementation docs and a launcher setup guide, added a .gitignore, and created a requirements.txt. This was basically the beginning of turning the project from a collection of standalone scripts into something with a real user interface. About 340 lines of launcher code plus all the reorganization and documentation.

@@ -1,0 +1,3 @@
+# 2025-01-17
+
+Quick fix tonight -- just patched the night travel scene right before midnight. Something was broken with the travel_night script so I added a few lines to sort it out. Not a big day for commits but at least it's working again.

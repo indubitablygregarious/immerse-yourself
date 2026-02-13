@@ -1,0 +1,7 @@
+# 2026-02-10
+
+The iOS audio saga continued today. I replaced the subprocess-based audio playback (ffplay/aplay) with the rodio crate for native Rust audio — subprocess spawning doesn't work on iOS, so this was essential. That was a big refactor touching both the atmosphere and sound engines, ripping out nearly 400 lines of process management code and replacing it with a cleaner in-process audio pipeline. Then I replaced the curl subprocess in the freesound downloader with reqwest for the same reason — no shelling out on iOS.
+
+I spent a good chunk of the day on the E2E screenshot system. Got `run_local.py` working with the WebKit Inspector Protocol for fully automated screenshots without Docker, which was satisfying. Updated all the docs to reflect the new automation approach. On the iOS side, I had to fix the cache directory to use a writable path (the app bundle is read-only on iOS, obviously in retrospect), fix the debug log footer being hidden by the safe area, and refresh stale virtual loop config names after downloads complete. That was five TestFlight builds today alone (0.3.4 through 0.3.10).
+
+I also built the demo video generator — a Python script that drives the app through scenarios and records everything, with a Docker setup for reproducibility. Created the ask-xteam Claude skill for convening virtual executive board meetings, and improved the mobile UX with swipe gestures, a copy button on the debug log, and better status bar layout. Merged the demo generator PR and the iOS branch to keep main clean.

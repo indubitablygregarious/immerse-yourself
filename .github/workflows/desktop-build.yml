@@ -1,0 +1,279 @@
+name: Desktop Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/immerse-tauri
+            rust/immerse-core
+          cache-targets: true
+          cache-all-crates: true
+          shared-key: linux-build
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: rust/immerse-tauri/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: rust/immerse-tauri/ui
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: rust/immerse-tauri/ui
+        run: npm run build
+
+      - name: Cache Tauri CLI
+        id: cache-tauri-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri
+          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Tauri CLI
+        if: steps.cache-tauri-cli.outputs.cache-hit != 'true'
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall tauri-cli --no-confirm
+
+      - name: Build Tauri app (no bundle)
+        working-directory: rust/immerse-tauri
+        run: cargo tauri build --no-bundle
+
+      - name: Assemble Linux archive
+        run: |
+          DIST="immerse-yourself-linux-x86_64"
+          mkdir -p "$DIST"
+          cp rust/immerse-tauri/target/release/immerse-tauri "$DIST/immerse-yourself"
+          cp -r env_conf "$DIST/"
+          cp -r sound_conf "$DIST/"
+          cp -r sounds "$DIST/"
+          tar czf "${DIST}.tar.gz" "$DIST"
+          echo "Built ${DIST}.tar.gz"
+          ls -lh "${DIST}.tar.gz"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: immerse-yourself-linux-x86_64
+          path: immerse-yourself-linux-x86_64.tar.gz
+          retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/immerse-tauri
+            rust/immerse-core
+          cache-targets: true
+          cache-all-crates: true
+          shared-key: macos-build
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: rust/immerse-tauri/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: rust/immerse-tauri/ui
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: rust/immerse-tauri/ui
+        run: npm run build
+
+      - name: Cache Tauri CLI
+        id: cache-tauri-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri
+          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Tauri CLI
+        if: steps.cache-tauri-cli.outputs.cache-hit != 'true'
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall tauri-cli --no-confirm
+
+      - name: Build Tauri app (DMG)
+        working-directory: rust/immerse-tauri
+        run: cargo tauri build --bundles dmg
+
+      - name: Find DMG file
+        id: find-dmg
+        run: |
+          DMG_PATH=$(find rust/immerse-tauri/target/release/bundle/dmg -name "*.dmg" -type f | head -1)
+          echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
+          echo "Found DMG: $DMG_PATH"
+          ls -lh "$DMG_PATH"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: immerse-yourself-macos-aarch64
+          path: ${{ steps.find-dmg.outputs.dmg_path }}
+          retention-days: 30
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/immerse-tauri
+            rust/immerse-core
+          cache-targets: true
+          cache-all-crates: true
+          shared-key: windows-build
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: rust/immerse-tauri/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: rust/immerse-tauri/ui
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: rust/immerse-tauri/ui
+        run: npm run build
+
+      - name: Cache Tauri CLI
+        id: cache-tauri-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri.exe
+          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Tauri CLI
+        if: steps.cache-tauri-cli.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall tauri-cli --no-confirm
+
+      - name: Build Tauri app (no bundle)
+        working-directory: rust/immerse-tauri
+        run: cargo tauri build --no-bundle
+
+      - name: Assemble Windows archive
+        shell: bash
+        run: |
+          DIST="immerse-yourself-windows-x86_64"
+          mkdir -p "$DIST"
+          cp rust/immerse-tauri/target/release/immerse-tauri.exe "$DIST/immerse-yourself.exe"
+          cp -r env_conf "$DIST/"
+          cp -r sound_conf "$DIST/"
+          cp -r sounds "$DIST/"
+          echo "Built $DIST/"
+          ls -lh "$DIST/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: immerse-yourself-windows-x86_64
+          path: immerse-yourself-windows-x86_64/
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Prepare release assets
+        run: |
+          echo "=== Downloaded artifacts ==="
+          ls -lR immerse-yourself-*/
+
+          # Linux tar.gz is already archived
+          echo "Linux: immerse-yourself-linux-x86_64/immerse-yourself-linux-x86_64.tar.gz"
+
+          # Find the macOS DMG
+          DMG=$(find immerse-yourself-macos-aarch64 -name "*.dmg" -type f | head -1)
+          echo "macOS: $DMG"
+
+          # Zip the Windows directory
+          cd immerse-yourself-windows-x86_64
+          zip -r ../immerse-yourself-windows-x86_64.zip .
+          cd ..
+          echo "Windows: immerse-yourself-windows-x86_64.zip"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DMG=$(find immerse-yourself-macos-aarch64 -name "*.dmg" -type f | head -1)
+
+          gh release create "${{ github.ref_name }}" \
+            --title "Immerse Yourself ${{ github.ref_name }}" \
+            --generate-notes \
+            immerse-yourself-linux-x86_64/immerse-yourself-linux-x86_64.tar.gz \
+            "$DMG" \
+            immerse-yourself-windows-x86_64.zip

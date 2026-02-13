@@ -28,7 +28,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage"],
-    "icon": ["icons/icon.png"]
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "resources": {
+      "../../env_conf": "env_conf",
+      "../../sound_conf": "sound_conf",
+      "../../sounds": "sounds"
+    }
   }
 }

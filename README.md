@@ -200,7 +200,13 @@ make run        # Run pre-built binary
 make test       # Run Rust tests
 make check      # Type-check without building
 make clean      # Remove build artifacts
+make release         # Cut a desktop release (bump version, tag, push, monitor CI)
+make release-dry-run # Preview what a release would do
 ```
+
+### Desktop Releases
+
+The project includes a 3-platform CI build (`.github/workflows/desktop-build.yml`) that produces Linux, macOS, and Windows binaries. Pushing a `v*` tag creates a GitHub Release with all platform binaries attached. Use `make release` to automate the full flow (version bump, tag, push, CI monitoring).
 
 ### iOS Builds (macOS only)
 

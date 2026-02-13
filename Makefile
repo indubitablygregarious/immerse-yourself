@@ -1,4 +1,4 @@
-.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo
+.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run
 
 help:
 	@echo "Immerse Yourself - Development Commands"
@@ -33,6 +33,10 @@ help:
 	@echo "  make demo-build      - Build the demo recording Docker image"
 	@echo "  make demo-record     - Record full demo (screen + camera)"
 	@echo "  make demo            - Alias for demo-record"
+	@echo ""
+	@echo "Release:"
+	@echo "  make release         - Cut a desktop release (bump patch, tag, push, monitor CI)"
+	@echo "  make release-dry-run - Show what a release would do without doing it"
 	@echo ""
 	@echo "Setup:"
 	@echo "  make setup           - Install Tauri CLI + configure git hooks"
@@ -246,3 +250,18 @@ demo-record: demo-build
 	bash demo/record_demo.sh
 
 demo: demo-record
+
+# ============================================================================
+# Desktop Release
+# ============================================================================
+# Bumps the version in tauri.conf.json, creates a git tag, pushes to origin,
+# and monitors the GitHub Actions desktop build workflow.
+# Pass RELEASE_ARGS for options: --minor, --major, --version X.Y.Z, --no-monitor
+
+RELEASE_ARGS ?=
+
+release:
+	python3 scripts/desktop-release.py $(RELEASE_ARGS)
+
+release-dry-run:
+	python3 scripts/desktop-release.py --dry-run $(RELEASE_ARGS)

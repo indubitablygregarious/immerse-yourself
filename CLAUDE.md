@@ -70,7 +70,31 @@ make check      # Check code compiles without building (uses Rust 1.89 wrapper)
 make run        # Run pre-built application (alias: make d, make desktop)
 make trex       # Build and launch application
 make clean      # Remove build artifacts
+make release         # Cut a desktop release (bump version, tag, push, monitor CI)
+make release-dry-run # Preview what a release would do without doing it
 ```
+
+Use `RELEASE_ARGS` to pass options: `make release RELEASE_ARGS="--minor"`, `make release RELEASE_ARGS="--major"`, or `make release RELEASE_ARGS="--version 1.0.0"`.
+
+### Desktop Builds & Releases
+
+Workflow: `.github/workflows/desktop-build.yml`
+
+**Triggers:**
+- Push to `main` — CI build (compile + test, no release)
+- Push `v*` tag — full build + GitHub Release with platform binaries
+
+**Platform jobs:** Linux (tar.gz on ubuntu-22.04), macOS (DMG on macos-latest), Windows (zip on windows-latest)
+
+**Release job:** Downloads all 3 platform artifacts and creates a GitHub Release with permanent download links.
+
+**Release flow:**
+1. Run `make release` (or `python3 scripts/desktop-release.py`)
+2. Script bumps version in `tauri.conf.json`, commits, creates annotated `v*` tag, pushes
+3. Tag push triggers the workflow — builds all 3 platforms, then creates a GitHub Release
+4. Script monitors CI and reports the release URL when done
+
+Script options: `--minor`, `--major`, `--version X.Y.Z`, `--dry-run`, `--no-monitor`, `--monitor-only vX.Y.Z`.
 
 ### Git Hooks
 
@@ -400,3 +424,14 @@ Workflow file: `.github/workflows/ios-build.yml`
 Required GitHub Secrets: `APPLE_CERTIFICATE_P12`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_PROVISIONING_PROFILE`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
 
 See the workflow file for full setup requirements.
+
+## Claude Code Skills
+
+Skills are invoked with `/skill-name` in Claude Code.
+
+| Skill | Description |
+|-------|-------------|
+| `/desktop-release` | Cut a desktop release — bumps version, tags, pushes, monitors CI. Options: `--minor`, `--major`, `--version X.Y.Z`. |
+| `/ios-release` | Cut an iOS release for TestFlight. |
+| `/build-check` | Run cross-platform build verification (3 parallel agents). |
+| `/devlog` | Generate a diary-style devlog entry from git commits. |

@@ -1,0 +1,419 @@
+name: Marketplace
+category: town
+description: Bustling outdoor market with merchants hawking wares and crowd chatter
+icon: 🏪
+metadata:
+  tags:
+  - outdoor
+  - market
+  - town
+  - crowd
+  - shopping
+  - busy
+  intensity: medium
+  suitable_for: &id001
+  - shopping
+  - town exploration
+  - social encounters
+  - pickpocket scenes
+time_variants:
+  morning:
+    icon: 🏪
+    description: Early morning market with vendors setting up and first customers
+      arriving
+    metadata:
+      tags:
+      - outdoor
+      - market
+      - town
+      - morning
+      - shopping
+      - setup
+      intensity: low
+      suitable_for:
+      - early shopping
+      - merchant deals
+      - town exploration
+      - gathering info
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/kyles/sounds/405308/
+          volume: 50
+        - url: https://freesound.org/people/kyles/sounds/455694/
+          volume: 45
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/timothyd4y/sounds/472606/
+          volume: 40
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/craigsmith/sounds/437078/
+          volume: 55
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/husky70/sounds/161315/
+          volume: 30
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 170
+                - 130
+                variance:
+                - 30
+                - 25
+                - 20
+              brightness:
+                min: 130
+                max: 200
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 220
+                - 200
+                - 160
+                variance:
+                - 35
+                - 30
+                - 25
+              brightness:
+                min: 160
+                max: 230
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 170
+                - 150
+                - 115
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 110
+                max: 170
+  daytime:
+    icon: 🏪
+    description: Bustling outdoor market with merchants hawking wares and crowd chatter
+    metadata:
+      tags:
+      - outdoor
+      - market
+      - town
+      - crowd
+      - shopping
+      - busy
+      intensity: medium
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/Metzik/sounds/371222/
+          volume: 80
+        - url: https://freesound.org/people/Metzik/sounds/244623/
+          volume: 75
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/klankbeeld/sounds/622893/
+          volume: 70
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/kyles/sounds/405308/
+          volume: 65
+        - url: https://freesound.org/people/kyles/sounds/455694/
+          volume: 60
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/timothyd4y/sounds/472606/
+          volume: 55
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/craigsmith/sounds/437078/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/husky70/sounds/161315/
+          volume: 35
+          optional: true
+          probability: 0.6
+      lights:
+        enabled: true
+        animation:
+          cycletime: 10
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 180
+                - 140
+                variance:
+                - 30
+                - 25
+                - 20
+              brightness:
+                min: 150
+                max: 230
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 220
+                - 200
+                - 160
+                variance:
+                - 35
+                - 30
+                - 25
+              brightness:
+                min: 180
+                max: 250
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 160
+                - 120
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 130
+                max: 200
+  afternoon:
+    icon: 🏪
+    description: Bustling afternoon market at peak activity with crowds and haggling
+    metadata:
+      tags:
+      - outdoor
+      - market
+      - town
+      - afternoon
+      - busy
+      - crowded
+      - shopping
+      intensity: high
+      suitable_for:
+      - shopping
+      - pickpocket scenes
+      - social encounters
+      - information gathering
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/Metzik/sounds/371222/
+          volume: 85
+        - url: https://freesound.org/people/Metzik/sounds/244623/
+          volume: 80
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/klankbeeld/sounds/622893/
+          volume: 75
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/kyles/sounds/405308/
+          volume: 70
+        - url: https://freesound.org/people/kyles/sounds/455694/
+          volume: 65
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/timothyd4y/sounds/472606/
+          volume: 60
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/craigsmith/sounds/437078/
+          volume: 45
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/husky70/sounds/161315/
+          volume: 40
+          optional: true
+          probability: 0.7
+        - url: https://freesound.org/people/Libra222/sounds/165529/
+          volume: 35
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 8
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 210
+                - 190
+                - 150
+                variance:
+                - 35
+                - 30
+                - 25
+              brightness:
+                min: 180
+                max: 250
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 240
+                - 220
+                - 180
+                variance:
+                - 40
+                - 35
+                - 30
+              brightness:
+                min: 210
+                max: 255
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 190
+                - 170
+                - 130
+                variance:
+                - 30
+                - 28
+                - 22
+              brightness:
+                min: 150
+                max: 220
+  evening:
+    icon: 🏪
+    description: Night market with torchlight, late vendors, and quieter crowds
+    metadata:
+      tags:
+      - outdoor
+      - market
+      - town
+      - night
+      - torchlit
+      - evening
+      intensity: low
+      suitable_for:
+      - night shopping
+      - black market
+      - shady deals
+      - evening stroll
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/kyles/sounds/405308/
+          volume: 45
+        - url: https://freesound.org/people/kyles/sounds/455694/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/timothyd4y/sounds/472606/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/LordStirling/sounds/483692/
+          volume: 50
+        - url: https://freesound.org/people/kyles/sounds/450995/
+          optional: true
+          probability: 0.5
+          volume: 40
+        - url: https://freesound.org/people/kyles/sounds/453860/
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+          volume: 25
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 10
+                speed_max: 120
+              brightness:
+                min: 80
+                max: 150
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 30
+                - 25
+                - 50
+                variance:
+                - 15
+                - 15
+                - 25
+              brightness:
+                min: 20
+                max: 60
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 80
+                - 60
+                - 40
+                variance:
+                - 20
+                - 18
+                - 15
+              brightness:
+                min: 50
+                max: 110
+engines: *id002

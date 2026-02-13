@@ -1,0 +1,71 @@
+name: "Dark Tavern"
+category: "tavern"
+description: "Atmospheric dark tavern with dim torch lighting and door sounds"
+icon: "🌑"
+
+metadata:
+  tags: ["social", "indoor", "dark", "mysterious", "medieval", "tavern"]
+  intensity: "low"
+  suitable_for: ["tabletop gaming", "social scenes", "mysterious encounters", "noir"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:squeaky_door"
+
+  spotify:
+    enabled: false
+    # context_uri: "spotify:playlist:5Q8DWZnPe7o7GA96SARmOK"
+
+  atmosphere:
+    enabled: true
+    min_sounds: 2
+    max_sounds: 4
+    mix:
+      # Low fireplace crackling (required - quieter for dark atmosphere)
+      - url: "https://freesound.org/people/NickTayloe/sounds/813328/"
+        volume: 40
+
+      # Quiet tavern crowd murmur (required - subdued)
+      - url: "https://freesound.org/people/dazzamoo/sounds/651364/"
+        volume: 45
+
+      # Wood floor creaking (optional - more prominent in quiet setting)
+      - url: "https://freesound.org/people/Kostas17/sounds/536365/"
+        volume: 30
+        optional: true
+        probability: 0.6
+
+      # Distant whispers/quiet conversation (optional)
+      - url: "https://freesound.org/people/soundslikewillem/sounds/449550/"
+        volume: 25
+        optional: true
+        probability: 0.4
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 12
+
+      groups:
+        backdrop:
+          type: "rgb"
+          rgb:
+            base: [0, 0, 0]  # Backdrop turned off
+            variance: [0, 0, 0]
+          brightness:
+            min: 0
+            max: 0
+
+        overhead:
+          type: "scene"
+          scenes:
+            ids: [5, 28, 31]  # Torch scenes
+            speed_min: 10
+            speed_max: 190
+          brightness:
+            min: 0
+            max: 60
+
+        battlefield:
+          type: "inherit_overhead"

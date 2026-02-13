@@ -1,0 +1,257 @@
+name: Camping
+category: relaxation
+description: Peaceful campfire atmosphere with fireplace scene and dim lighting
+icon: 🏕️
+metadata:
+  tags:
+  - relaxation
+  - campfire
+  - outdoor
+  - peaceful
+  intensity: low
+  suitable_for: &id001
+  - rest scenes
+  - camping
+  - outdoor ambiance
+  - storytelling
+time_variants:
+  morning:
+    icon: 🏕️
+    description: Morning camp waking up with bird songs and dying embers from the
+      night fire
+    metadata:
+      tags:
+      - relaxation
+      - campfire
+      - outdoor
+      - morning
+      - dawn
+      - birds
+      intensity: low
+      suitable_for:
+      - breaking camp
+      - morning rest
+      - packing up
+      - dawn departure
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:camp_setup
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 70
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 30
+        - url: https://freesound.org/people/klankbeeld/sounds/702233/
+          volume: 45
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/WaveAdventurer/sounds/702240/
+          volume: 35
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 170
+                - 140
+                variance:
+                - 30
+                - 25
+                - 20
+              brightness:
+                min: 130
+                max: 200
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 170
+                - 190
+                variance:
+                - 35
+                - 32
+                - 40
+              brightness:
+                min: 160
+                max: 230
+            battlefield:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                speed_min: 5
+                speed_max: 50
+              brightness:
+                min: 20
+                max: 40
+  afternoon:
+    icon: 🏕️
+    description: Afternoon rest stop with pleasant weather and relaxed camp atmosphere
+    metadata:
+      tags:
+      - relaxation
+      - outdoor
+      - afternoon
+      - rest
+      - peaceful
+      intensity: low
+      suitable_for:
+      - afternoon rest
+      - midday break
+      - setting up camp
+      - relaxation
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:camp_setup
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/harryScary/sounds/268958/
+        - url: https://freesound.org/people/TRP/sounds/715693/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/klankbeeld/sounds/625003/
+          optional: true
+          probability: 0.5
+          volume: 50
+        - url: https://freesound.org/people/forestfjord/sounds/816089/
+          optional: true
+          probability: 0.5
+          volume: 50
+        - url: https://freesound.org/people/klankbeeld/sounds/702233/
+          volume: 50
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 35
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 150
+                - 170
+                - 130
+                variance:
+                - 30
+                - 35
+                - 28
+              brightness:
+                min: 150
+                max: 220
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 200
+                - 170
+                variance:
+                - 35
+                - 40
+                - 32
+              brightness:
+                min: 180
+                max: 250
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 120
+                - 140
+                - 100
+                variance:
+                - 25
+                - 28
+                - 22
+              brightness:
+                min: 110
+                max: 180
+  evening:
+    icon: 🏕️
+    description: Peaceful night camp with crackling fire, stars above, and nocturnal
+      sounds
+    metadata:
+      tags:
+      - relaxation
+      - campfire
+      - outdoor
+      - night
+      - peaceful
+      - stars
+      intensity: low
+      suitable_for:
+      - night rest
+      - storytelling
+      - stargazing
+      - watch duty
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:camp_setup
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 80
+        - url: https://freesound.org/people/RyanKingArt/sounds/746365/
+          volume: 65
+        - url: https://freesound.org/people/klankbeeld/sounds/702233/
+          volume: 45
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/Anthousai/sounds/398734/
+          volume: 30
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: 'off'
+            overhead:
+              type: 'off'
+            battlefield:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                speed_min: 20
+                speed_max: 190
+              brightness:
+                min: 50
+                max: 80
+engines: *id002

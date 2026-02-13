@@ -1,0 +1,86 @@
+name: "War Camp"
+category: "combat"
+description: "Military encampment with war drums, armor clanking, and soldiers preparing for battle"
+icon: "⚔️"
+
+metadata:
+  tags: ["outdoor", "military", "camp", "army", "war", "preparation"]
+  intensity: "medium"
+  suitable_for: ["military briefings", "army encounters", "mercenary camps", "siege preparations"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:transition"
+
+  spotify:
+    enabled: false
+
+  atmosphere:
+    enabled: true
+    min_sounds: 3
+    max_sounds: 5
+    mix:
+      # War drums
+      - url: "https://freesound.org/people/Mark_Murray/sounds/648393/"
+      - url: "https://freesound.org/people/Mark_Murray/sounds/723202/"
+        optional: true
+        probability: 0.5
+        volume: 50
+
+      # Armor clanking/soldiers marching
+      - url: "https://freesound.org/people/Vrymaa/sounds/770065/"
+      - url: "https://freesound.org/people/qubodup/sounds/199282/"
+        optional: true
+        probability: 0.5
+        volume: 55
+
+      # Campfire crackling
+      - url: "https://freesound.org/people/LordStirling/sounds/483692/"
+        volume: 45
+
+      # Sword/weapon maintenance
+      - url: "https://freesound.org/people/kyles/sounds/453650/"
+        volume: 35
+        optional: true
+        probability: 0.4
+
+      # Distant shouting orders
+      - url: "https://freesound.org/people/Leandros.Ntounis/sounds/163612/"
+        volume: 30
+        optional: true
+        probability: 0.4
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 10
+
+      groups:
+        backdrop:
+          type: "scene"
+          scenes:
+            ids: [5, 28, 31]  # Campfire/torch
+            speed_min: 30
+            speed_max: 120
+          brightness:
+            min: 80
+            max: 150
+
+        overhead:
+          type: "rgb"
+          rgb:
+            base: [80, 60, 40]  # Dusk/firelight
+            variance: [25, 20, 15]
+          brightness:
+            min: 70
+            max: 130
+
+        battlefield:
+          type: "rgb"
+          rgb:
+            base: [120, 80, 50]  # Warm firelight
+            variance: [30, 25, 20]
+          brightness:
+            min: 60
+            max: 120

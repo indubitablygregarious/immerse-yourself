@@ -1,0 +1,396 @@
+name: Graveyard
+category: spooky
+description: Eerie cemetery with weathered headstones, howling wind, and distant crows
+icon: 🪦
+metadata:
+  tags:
+  - spooky
+  - cemetery
+  - graveyard
+  - horror
+  - undead
+  intensity: medium
+  suitable_for: &id001
+  - horror scenes
+  - undead encounters
+  - cemetery exploration
+time_variants:
+  morning:
+    icon: 🪦
+    description: Misty graveyard at dawn with soft light and morning birds
+    metadata:
+      tags:
+      - spooky
+      - outdoor
+      - morning
+      - cemetery
+      - mist
+      - quiet
+      intensity: low
+      suitable_for:
+      - exploration
+      - investigation
+      - morning visit
+      - peaceful mourning
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 50
+        - url: https://freesound.org/people/Kinoton/sounds/558840/
+          volume: 40
+        - url: https://freesound.org/people/dobroide/sounds/126283/
+          optional: true
+          probability: 0.5
+          volume: 30
+        - url: https://freesound.org/people/Breviceps/sounds/515290/
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+          optional: true
+          probability: 0.5
+          volume: 35
+        - url: https://freesound.org/people/Garuda1982/sounds/575645/
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 140
+                - 130
+                - 120
+                variance:
+                - 20
+                - 18
+                - 15
+              brightness:
+                min: 100
+                max: 170
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 160
+                - 155
+                - 150
+                variance:
+                - 25
+                - 22
+                - 20
+              brightness:
+                min: 130
+                max: 200
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 100
+                - 95
+                - 85
+                variance:
+                - 15
+                - 14
+                - 12
+              brightness:
+                min: 70
+                max: 130
+  daytime:
+    icon: 🪦
+    description: Eerie graveyard at night with howling wind and distant crows
+    metadata:
+      tags:
+      - spooky
+      - outdoor
+      - night
+      - cemetery
+      - horror
+      intensity: medium
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/Kinoton/sounds/558840/
+          volume: 70
+        - url: https://freesound.org/people/dobroide/sounds/126283/
+          optional: true
+          probability: 0.5
+          volume: 50
+        - url: https://freesound.org/people/Breviceps/sounds/515290/
+          optional: true
+          probability: 0.7
+        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+          optional: true
+          probability: 0.5
+          volume: 40
+        - url: https://freesound.org/people/Garuda1982/sounds/575645/
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 10
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 40
+                - 40
+                - 80
+                variance:
+                - 15
+                - 15
+                - 25
+              brightness:
+                min: 50
+                max: 100
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 60
+                - 50
+                - 90
+                variance:
+                - 20
+                - 20
+                - 30
+              brightness:
+                min: 60
+                max: 120
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 30
+                - 30
+                - 60
+                variance:
+                - 10
+                - 10
+                - 20
+              brightness:
+                min: 30
+                max: 80
+  afternoon:
+    icon: 🪦
+    description: Quiet graveyard in afternoon light with gentle wind through old stones
+    metadata:
+      tags:
+      - spooky
+      - outdoor
+      - afternoon
+      - cemetery
+      - peaceful
+      - somber
+      intensity: low
+      suitable_for:
+      - exploration
+      - burial ceremony
+      - investigation
+      - reflection
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/Kinoton/sounds/558840/
+          volume: 50
+        - url: https://freesound.org/people/klankbeeld/sounds/625003/
+        - url: https://freesound.org/people/forestfjord/sounds/816089/
+          optional: true
+          probability: 0.5
+          volume: 45
+        - url: https://freesound.org/people/dobroide/sounds/126283/
+          optional: true
+          probability: 0.5
+          volume: 40
+        - url: https://freesound.org/people/Breviceps/sounds/515290/
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+          optional: true
+          probability: 0.5
+          volume: 40
+        - url: https://freesound.org/people/Garuda1982/sounds/575645/
+          optional: true
+          probability: 0.6
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 150
+                - 140
+                - 110
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 130
+                max: 200
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 175
+                - 160
+                variance:
+                - 30
+                - 28
+                - 25
+              brightness:
+                min: 170
+                max: 240
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 110
+                - 100
+                - 80
+                variance:
+                - 18
+                - 16
+                - 14
+              brightness:
+                min: 100
+                max: 160
+  evening:
+    icon: 🪦
+    description: Eerie graveyard at night with howling wind and distant crows
+    metadata:
+      tags:
+      - spooky
+      - outdoor
+      - night
+      - cemetery
+      - horror
+      - dark
+      intensity: high
+      suitable_for:
+      - horror scenes
+      - undead encounters
+      - graveyard exploration
+      - necromancy
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/Kinoton/sounds/558840/
+          volume: 75
+        - url: https://freesound.org/people/dobroide/sounds/126283/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/Breviceps/sounds/515290/
+          optional: true
+          probability: 0.7
+        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+          optional: true
+          probability: 0.5
+          volume: 45
+        - url: https://freesound.org/people/Garuda1982/sounds/575645/
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Taure/sounds/380156/
+          volume: 30
+          optional: true
+          probability: 0.3
+      lights:
+        enabled: true
+        animation:
+          cycletime: 10
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 35
+                - 35
+                - 75
+                variance:
+                - 15
+                - 15
+                - 25
+              brightness:
+                min: 40
+                max: 90
+              flash:
+                probability: 0.03
+                color:
+                - 150
+                - 160
+                - 180
+                brightness: 120
+                duration: 2.0
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 50
+                - 45
+                - 85
+                variance:
+                - 18
+                - 18
+                - 28
+              brightness:
+                min: 50
+                max: 100
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 25
+                - 25
+                - 55
+                variance:
+                - 10
+                - 10
+                - 18
+              brightness:
+                min: 20
+                max: 60
+engines: *id002

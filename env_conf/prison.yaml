@@ -1,0 +1,368 @@
+name: Prison
+category: dungeon
+description: Dark prison cells with rattling chains and distant groans
+icon: ⛓️
+metadata:
+  tags:
+  - indoor
+  - prison
+  - jail
+  - dungeon
+  - captivity
+  intensity: medium
+  suitable_for: &id001
+  - prison scenes
+  - escape attempts
+  - interrogation
+  - captivity
+time_variants:
+  morning:
+    icon: ⛓️
+    description: Prison cells in early morning with dim light through barred windows
+    metadata:
+      tags:
+      - indoor
+      - prison
+      - jail
+      - dungeon
+      - morning
+      - captivity
+      intensity: medium
+      suitable_for:
+      - prison morning
+      - guard change
+      - interrogation
+      - escape attempt
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/MSHahen/sounds/267543/
+          volume: 50
+        - url: https://freesound.org/people/Sclolex/sounds/177958/
+          volume: 45
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 20
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/Kinoton/sounds/516566/
+          volume: 45
+          optional: true
+          probability: 0.6
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 90
+                - 85
+                - 75
+                variance:
+                - 15
+                - 14
+                - 12
+              brightness:
+                min: 50
+                max: 110
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 110
+                - 100
+                - 90
+                variance:
+                - 18
+                - 16
+                - 14
+              brightness:
+                min: 70
+                max: 130
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 60
+                - 55
+                - 48
+                variance:
+                - 12
+                - 11
+                - 10
+              brightness:
+                min: 35
+                max: 80
+  daytime:
+    icon: ⛓️
+    description: Dark prison cells with rattling chains and distant groans
+    metadata:
+      tags:
+      - indoor
+      - prison
+      - jail
+      - dungeon
+      - dark
+      - captivity
+      intensity: medium
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/MSHahen/sounds/267543/
+          volume: 60
+        - url: https://freesound.org/people/Sclolex/sounds/177958/
+          volume: 50
+        - url: https://freesound.org/people/Kinoton/sounds/516566/
+          volume: 65
+        - url: https://freesound.org/people/michaelnoise86/sounds/746491/
+        - url: https://freesound.org/people/Vrymaa/sounds/794214/
+          optional: true
+          probability: 0.4
+          volume: 25
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 50
+                - 45
+                - 40
+                variance:
+                - 10
+                - 10
+                - 8
+              brightness:
+                min: 30
+                max: 70
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 70
+                - 60
+                - 50
+                variance:
+                - 15
+                - 12
+                - 10
+              brightness:
+                min: 50
+                max: 100
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 40
+                - 35
+                - 30
+                variance:
+                - 8
+                - 8
+                - 6
+              brightness:
+                min: 20
+                max: 55
+  afternoon:
+    icon: ⛓️
+    description: Prison cells with afternoon light casting bars of shadow through
+      windows
+    metadata:
+      tags:
+      - indoor
+      - prison
+      - jail
+      - dungeon
+      - afternoon
+      - captivity
+      intensity: medium
+      suitable_for:
+      - prison visit
+      - interrogation
+      - waiting
+      - captivity
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/MSHahen/sounds/267543/
+          volume: 55
+        - url: https://freesound.org/people/Sclolex/sounds/177958/
+          volume: 50
+        - url: https://freesound.org/people/Kinoton/sounds/516566/
+          volume: 55
+        - url: https://freesound.org/people/michaelnoise86/sounds/746491/
+        - url: https://freesound.org/people/Vrymaa/sounds/794214/
+          optional: true
+          probability: 0.3
+          volume: 20
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 110
+                - 100
+                - 80
+                variance:
+                - 18
+                - 16
+                - 14
+              brightness:
+                min: 70
+                max: 140
+              flash:
+                probability: 0.03
+                color:
+                - 180
+                - 170
+                - 140
+                brightness: 180
+                duration: 2.0
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 130
+                - 115
+                - 95
+                variance:
+                - 20
+                - 18
+                - 15
+              brightness:
+                min: 90
+                max: 160
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 75
+                - 68
+                - 55
+                variance:
+                - 14
+                - 13
+                - 11
+              brightness:
+                min: 50
+                max: 100
+  evening:
+    icon: ⛓️
+    description: Dark prison cells at night with only faint torchlight and haunting
+      sounds
+    metadata:
+      tags:
+      - indoor
+      - prison
+      - jail
+      - dungeon
+      - night
+      - dark
+      - captivity
+      intensity: high
+      suitable_for:
+      - night escape
+      - torture scenes
+      - dark imprisonment
+      - despair
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/MSHahen/sounds/267543/
+          volume: 65
+        - url: https://freesound.org/people/Sclolex/sounds/177958/
+          volume: 60
+        - url: https://freesound.org/people/Kinoton/sounds/516566/
+          volume: 70
+        - url: https://freesound.org/people/michaelnoise86/sounds/746491/
+        - url: https://freesound.org/people/Vrymaa/sounds/794214/
+          optional: true
+          probability: 0.5
+          volume: 35
+      lights:
+        enabled: true
+        animation:
+          cycletime: 16
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 35
+                - 32
+                - 28
+                variance:
+                - 10
+                - 9
+                - 8
+              brightness:
+                min: 15
+                max: 50
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                speed_min: 10
+                speed_max: 60
+              brightness:
+                min: 30
+                max: 70
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 25
+                - 22
+                - 18
+                variance:
+                - 8
+                - 7
+                - 6
+              brightness:
+                min: 10
+                max: 35
+engines: *id002

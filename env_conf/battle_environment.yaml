@@ -1,0 +1,75 @@
+name: "Battle Environment"
+category: "combat"
+description: "Intense red-themed combat with danger sounds and white lightning flashes"
+icon: "🗡️"
+
+metadata:
+  tags: ["combat", "battle", "intense", "fire", "red"]
+  intensity: "high"
+  suitable_for: ["boss fights", "combat encounters", "fire battles", "volcanic"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:battle_intro"
+
+  spotify:
+    enabled: true
+    context_uri: "spotify:playlist:6FohP6m1ipvNjgllOH4HLt"
+
+  atmosphere:
+    enabled: false
+    # min_sounds: 3
+    # max_sounds: 5
+    # mix:
+    #   # Sword clash collection (required)
+    #   - url: "https://freesound.org/people/courter/sounds/658736/"
+    #     volume: 55
+    #
+    #   # Battle cries charging (required)
+    #   - url: "https://freesound.org/people/florianreichelt/sounds/563011/"
+    #     volume: 50
+    #
+    #   # Sword blades grinding (optional)
+    #   - url: "https://freesound.org/people/Hano_van_Dalen/sounds/767323/"
+    #     volume: 45
+    #     optional: true
+    #     probability: 0.6
+    #
+    #   # War cry (optional)
+    #   - url: "https://freesound.org/people/WelvynZPorterSamples/sounds/621336/"
+    #     volume: 40
+    #     optional: true
+    #     probability: 0.5
+    #
+    #   # Heavy breathing exertion (optional)
+    #   - url: "https://freesound.org/people/michaelnoise86/sounds/746491/"
+    #     volume: 40
+    #     optional: true
+    #     probability: 0.5
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 3  # Fast animation for combat intensity
+
+      groups:
+        backdrop:
+          type: "rgb"
+          rgb:
+            base: [255, 15, 15]  # Intense red
+            variance: [10, 10, 10]
+          brightness:
+            min: 74
+            max: 255
+          flash:
+            probability: 0.05  # Rare lightning (>95%)
+            color: [255, 255, 255]  # White lightning flash
+            brightness: 230
+            duration: 1.0
+
+        overhead:
+          type: "inherit_backdrop"
+
+        battlefield:
+          type: "inherit_backdrop"

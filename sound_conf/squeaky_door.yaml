@@ -1,0 +1,30 @@
+# Squeaky Door Sound Collection
+# One sound is randomly selected and played when this config is referenced
+name: "Squeaky Door"
+description: "Various door creaking and squeaking sounds"
+
+sounds:
+  # Original door sound from sounds/ directory
+  - file: "sounds/dooropen.wav"
+    description: "Original door open sound"
+
+  # Freesound door sounds
+  - url: "https://freesound.org/people/callyrobyn/sounds/417968/"
+    description: "Door creak by callyrobyn"
+
+  - url: "https://freesound.org/people/kyles/sounds/451813/"
+    description: "Door squeak by kyles"
+    fadeout: 4000
+
+  - url: "https://freesound.org/people/BlondPanda/sounds/778461/"
+    description: "Door creak by BlondPanda"
+
+  - url: "https://freesound.org/people/Garuda1982/sounds/553377/"
+    description: "Door squeak by Garuda1982"
+
+  - url: "https://freesound.org/people/kyles/sounds/51805/"
+    description: "Door creak by kyles (alt)"
+    fadeout: 4000
+
+  - url: "https://freesound.org/people/skyumori/sounds/104526/"
+    description: "Door squeak by skyumori"

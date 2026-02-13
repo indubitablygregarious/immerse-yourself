@@ -1,0 +1,90 @@
+name: "Startup"
+category: "hidden"
+description: "Default startup environment - tavern lights with travel music"
+icon: "🏠"
+
+metadata:
+  tags: ["startup", "default"]
+  intensity: "low"
+  suitable_for: ["startup", "default"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:transition"
+
+  spotify:
+    enabled: false
+    # context_uri: "spotify:playlist:3Vz5yr3PL1xIIAe89mPfT4"
+
+  atmosphere:
+    enabled: true
+    min_sounds: 3
+    max_sounds: 5
+    mix:
+      # Forest birds chirping (required)
+      - url: "https://freesound.org/people/klankbeeld/sounds/273162/"
+        volume: 60
+
+      # Light breeze with nature sounds (required)
+      - url: "https://freesound.org/people/newlocknew/sounds/784341/"
+        volume: 50
+
+      # Rustling leaves in wind (required)
+      - url: "https://freesound.org/people/arpeggio1980/sounds/523389/"
+        volume: 45
+
+      # Footsteps on gravel path (optional)
+      - url: "https://freesound.org/people/el_boss/sounds/561501/"
+        volume: 35
+        optional: true
+        probability: 0.5
+
+      # Distant forest stream (optional)
+      - url: "https://freesound.org/people/cher1101/sounds/671883/"
+        volume: 40
+        optional: true
+        probability: 0.4
+
+      # Summer cicadas (optional)
+      - url: "https://freesound.org/people/harryScary/sounds/268958/"
+        optional: true
+        probability: 0.5
+        volume: 35
+      - url: "https://freesound.org/people/TRP/sounds/715693/"
+        optional: true
+        probability: 0.5
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 12
+      flash_variance: 25
+
+      groups:
+        backdrop:
+          type: "rgb"
+          rgb:
+            base: [128, 128, 128]
+            variance: [20, 20, 20]
+          brightness:
+            min: 44
+            max: 153
+          flash:
+            probability: 0.05
+            color: [255, 255, 255]
+            brightness: 138
+            duration: 1.0
+
+        overhead:
+          type: "scene"
+          scenes:
+            ids: [5, 28, 31]  # Torch scenes
+            speed_min: 10
+            speed_max: 190
+          brightness:
+            min: 117
+            max: 153
+
+        battlefield:
+          type: "inherit_overhead"

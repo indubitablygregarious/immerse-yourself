@@ -1,0 +1,330 @@
+name: Beach
+category: coastal
+description: Sandy shoreline with gentle waves and seagulls calling overhead
+icon: 🏖️
+metadata:
+  tags:
+  - beach
+  - ocean
+  - sand
+  - waves
+  - coastal
+  - seagulls
+  intensity: low
+  suitable_for: &id001
+  - relaxation
+  - coastal scenes
+  - seaside encounters
+time_variants:
+  daytime:
+    icon: 🏖️
+    description: Calm seaside under a shaded umbrella, waves softly crashing
+    metadata:
+      tags:
+      - beach
+      - ocean
+      - calm
+      - relaxation
+      - waves
+      - coastal
+      - summer
+      intensity: low
+      suitable_for:
+      - relaxation
+      - meditation
+      - background ambiance
+      - coastal scenes
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/Lucas_Schacht/sounds/534916/
+          volume: 65
+        - url: https://freesound.org/people/felix.blume/sounds/155747/
+          volume: 50
+        - url: https://freesound.org/people/arpeggio1980/sounds/437459/
+          volume: 55
+        - url: https://freesound.org/people/klankbeeld/sounds/190043/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/bruno.auzet/sounds/785768/
+          volume: 45
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 8
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 100
+                - 180
+                - 220
+                variance:
+                - 20
+                - 30
+                - 30
+              brightness:
+                min: 140
+                max: 200
+              flash:
+                probability: 0.02
+                color:
+                - 255
+                - 255
+                - 230
+                brightness: 240
+                duration: 1.5
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 255
+                - 240
+                - 200
+                variance:
+                - 0
+                - 15
+                - 30
+              brightness:
+                min: 180
+                max: 230
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 200
+                - 220
+                variance:
+                - 30
+                - 20
+                - 20
+              brightness:
+                min: 120
+                max: 180
+              flash:
+                probability: 0.03
+                color:
+                - 220
+                - 240
+                - 255
+                brightness: 200
+                duration: 2.0
+  afternoon:
+    icon: 🌅
+    description: Golden hour on the shore as the sun begins its descent
+    metadata:
+      tags:
+      - beach
+      - ocean
+      - afternoon
+      - relaxation
+      - waves
+      - coastal
+      - sunset
+      - golden hour
+      intensity: low
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/IanFSA/sounds/755303/
+          volume: 60
+        - url: https://freesound.org/people/felix.blume/sounds/155747/
+          volume: 45
+        - url: https://freesound.org/people/bruno.auzet/sounds/785768/
+          volume: 50
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/arpeggio1980/sounds/437459/
+          volume: 45
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/kevp888/sounds/836484/
+          volume: 40
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 255
+                - 160
+                - 100
+                variance:
+                - 0
+                - 40
+                - 50
+              brightness:
+                min: 160
+                max: 220
+              flash:
+                probability: 0.03
+                color:
+                - 255
+                - 220
+                - 150
+                brightness: 255
+                duration: 1.5
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 255
+                - 180
+                - 80
+                variance:
+                - 0
+                - 30
+                - 40
+              brightness:
+                min: 180
+                max: 240
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 220
+                - 150
+                - 100
+                variance:
+                - 20
+                - 30
+                - 30
+              brightness:
+                min: 140
+                max: 200
+              flash:
+                probability: 0.04
+                color:
+                - 255
+                - 200
+                - 130
+                brightness: 230
+                duration: 1.0
+  evening:
+    icon: 🌊
+    description: Moonlit shoreline with gentle waves under the stars
+    metadata:
+      tags:
+      - beach
+      - ocean
+      - night
+      - relaxation
+      - waves
+      - coastal
+      - moonlit
+      - stars
+      intensity: low
+      suitable_for:
+      - relaxation
+      - meditation
+      - nighttime ambiance
+      - romantic scenes
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/kevp888/sounds/836484/
+          volume: 60
+        - url: https://freesound.org/people/felix.blume/sounds/510236/
+          volume: 55
+        - url: https://freesound.org/people/kyles/sounds/450995/
+          optional: true
+          probability: 0.5
+          volume: 40
+        - url: https://freesound.org/people/kyles/sounds/453860/
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/kevp888/sounds/836178/
+          volume: 45
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/klankbeeld/sounds/190043/
+          volume: 30
+          optional: true
+          probability: 0.3
+      lights:
+        enabled: true
+        animation:
+          cycletime: 10
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 5
+                - 10
+                - 20
+                variance:
+                - 3
+                - 5
+                - 8
+              brightness:
+                min: 3
+                max: 10
+              flash:
+                probability: 0.02
+                color:
+                - 40
+                - 50
+                - 70
+                brightness: 25
+                duration: 2.0
+            overhead:
+              type: 'off'
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 8
+                - 10
+                - 18
+                variance:
+                - 3
+                - 3
+                - 5
+              brightness:
+                min: 2
+                max: 8
+              flash:
+                probability: 0.02
+                color:
+                - 30
+                - 35
+                - 50
+                brightness: 20
+                duration: 1.5
+engines: *id002

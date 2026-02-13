@@ -1,0 +1,69 @@
+name: "Chill Jazz"
+category: "relaxation"
+description: "Ultra-relaxed jazz atmosphere with soft warm lighting and gentle animations"
+icon: "🎷"
+
+metadata:
+  tags: ["relaxation", "jazz", "ambient", "slow", "peaceful", "music"]
+  intensity: "low"
+  suitable_for: ["meditation", "reading", "background music", "downtime"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:transition"
+
+  spotify:
+    enabled: false
+    # context_uri: "spotify:playlist:37i9dQZF1EIe80k6uRBZGd"
+
+  atmosphere:
+    enabled: true
+    min_sounds: 2
+    max_sounds: 4
+    mix:
+      # Cafe ambience (required)
+      - url: "https://freesound.org/people/CharleneZ/sounds/326371/"
+        volume: 50
+
+      # Coffee shop binaural (required)
+      - url: "https://freesound.org/people/Speedenza/sounds/460125/"
+        volume: 45
+
+      # Small indie cafe afternoon (optional)
+      - url: "https://freesound.org/people/theplax/sounds/656618/"
+        volume: 45
+        optional: true
+        probability: 0.5
+
+      # Gentle rain on window (optional)
+      - url: "https://freesound.org/people/RutgerMuller/sounds/158691/"
+        volume: 35
+        optional: true
+        probability: 0.4
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 60  # Very slow for relaxation
+
+      groups:
+        backdrop:
+          type: "rgb"
+          rgb:
+            base: [128, 128, 64]  # Warm yellowish
+            variance: [20, 20, 20]
+          brightness:
+            min: 100
+            max: 220
+          flash:
+            probability: 0.05  # Rare flashes (>95%)
+            color: [255, 255, 255]
+            brightness: 220
+            duration: 1.0
+
+        overhead:
+          type: "inherit_backdrop"
+
+        battlefield:
+          type: "inherit_backdrop"

@@ -1,0 +1,350 @@
+name: Tavern
+category: tavern
+description: Cozy medieval tavern atmosphere with warm lighting and door sounds
+icon: 🍺
+metadata:
+  tags:
+  - social
+  - indoor
+  - cozy
+  - medieval
+  intensity: low
+  suitable_for: &id001
+  - tabletop gaming
+  - social scenes
+  - downtime
+  - roleplay
+time_variants:
+  morning:
+    icon: 🍺
+    description: Quiet morning tavern with breakfast preparations and early risers
+    metadata:
+      tags:
+      - social
+      - indoor
+      - morning
+      - quiet
+      - breakfast
+      - medieval
+      intensity: low
+      suitable_for:
+      - morning meal
+      - gathering information
+      - meeting contacts
+      - starting day
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/hansende/sounds/263994/
+          volume: 55
+        - url: https://freesound.org/people/EpicWizard/sounds/325194/
+          volume: 30
+        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/Kostas17/sounds/536365/
+          volume: 25
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 15
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 160
+                - 120
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 120
+                max: 200
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 180
+                - 150
+                variance:
+                - 30
+                - 28
+                - 22
+              brightness:
+                min: 160
+                max: 230
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 150
+                - 130
+                - 100
+                variance:
+                - 22
+                - 20
+                - 16
+              brightness:
+                min: 100
+                max: 170
+  daytime:
+    icon: 🍺
+    description: Cozy medieval tavern atmosphere with warm lighting and door sounds
+    metadata:
+      tags:
+      - social
+      - indoor
+      - cozy
+      - medieval
+      intensity: low
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/hansende/sounds/263994/
+          volume: 70
+        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+          volume: 80
+        - url: https://freesound.org/people/EpicWizard/sounds/325194/
+          volume: 40
+          optional: true
+          probability: 0.7
+        - url: https://freesound.org/people/deleted_user_2104797/sounds/346688/
+          volume: 35
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Kostas17/sounds/536365/
+          volume: 25
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/f-r-a-g-i-l-e/sounds/506266/
+          volume: 30
+          optional: true
+          pool: music
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          flash_variance: 25
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 128
+                - 128
+                - 128
+                variance:
+                - 20
+                - 20
+                - 20
+              brightness:
+                min: 44
+                max: 153
+              flash:
+                probability: 0.05
+                color:
+                - 255
+                - 255
+                - 255
+                brightness: 138
+                duration: 1.0
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 10
+                speed_max: 190
+              brightness:
+                min: 117
+                max: 153
+            battlefield:
+              type: inherit_overhead
+  afternoon:
+    icon: 🍺
+    description: Relaxed afternoon tavern with moderate crowd and warm atmosphere
+    metadata:
+      tags:
+      - social
+      - indoor
+      - afternoon
+      - relaxed
+      - medieval
+      intensity: low
+      suitable_for:
+      - afternoon drinks
+      - social encounters
+      - downtime
+      - roleplay
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/hansende/sounds/263994/
+          volume: 55
+        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+          volume: 60
+        - url: https://freesound.org/people/EpicWizard/sounds/325194/
+          volume: 35
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/f-r-a-g-i-l-e/sounds/506266/
+          volume: 25
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/Kostas17/sounds/536365/
+          volume: 25
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 160
+                - 140
+                - 100
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 100
+                max: 180
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 10
+                speed_max: 150
+              brightness:
+                min: 140
+                max: 200
+            battlefield:
+              type: inherit_overhead
+  evening:
+    icon: 🍺
+    description: Lively evening tavern with full crowd, music, and roaring fire
+    metadata:
+      tags:
+      - social
+      - indoor
+      - night
+      - lively
+      - busy
+      - medieval
+      intensity: medium
+      suitable_for:
+      - evening revelry
+      - social scenes
+      - information gathering
+      - roleplay
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/hansende/sounds/263994/
+          volume: 70
+        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+          volume: 85
+        - url: https://freesound.org/people/EpicWizard/sounds/325194/
+          volume: 45
+          optional: true
+          probability: 0.7
+        - url: https://freesound.org/people/deleted_user_2104797/sounds/346688/
+          volume: 40
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/f-r-a-g-i-l-e/sounds/506266/
+          volume: 35
+          optional: true
+          pool: music
+      lights:
+        enabled: true
+        animation:
+          cycletime: 10
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 140
+                - 100
+                - 60
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 60
+                max: 140
+              flash:
+                probability: 0.05
+                color:
+                - 255
+                - 200
+                - 100
+                brightness: 180
+                duration: 0.8
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 20
+                speed_max: 190
+              brightness:
+                min: 130
+                max: 180
+            battlefield:
+              type: inherit_overhead
+engines: *id002

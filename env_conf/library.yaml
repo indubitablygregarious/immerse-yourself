@@ -1,0 +1,374 @@
+name: Library
+category: interiors
+description: Quiet library atmosphere with warm torch lighting and door sounds
+icon: 📚
+metadata:
+  tags:
+  - social
+  - indoor
+  - quiet
+  - reading
+  - study
+  - medieval
+  intensity: low
+  suitable_for: &id001
+  - research scenes
+  - studying
+  - reading
+  - quiet moments
+  - downtime
+time_variants:
+  morning:
+    icon: 📚
+    description: Quiet morning library with soft light through windows and fresh start
+    metadata:
+      tags:
+      - social
+      - indoor
+      - quiet
+      - morning
+      - study
+      - medieval
+      intensity: low
+      suitable_for:
+      - research
+      - studying
+      - early morning work
+      - quiet contemplation
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/xkeril/sounds/620683/
+          volume: 50
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 25
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/OwlStorm/sounds/212181/
+          volume: 35
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/lartti/sounds/513779/
+          volume: 25
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 15
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 190
+                - 170
+                variance:
+                - 25
+                - 24
+                - 20
+              brightness:
+                min: 140
+                max: 210
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 220
+                - 210
+                - 190
+                variance:
+                - 30
+                - 28
+                - 24
+              brightness:
+                min: 180
+                max: 245
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 170
+                - 160
+                - 140
+                variance:
+                - 22
+                - 20
+                - 18
+              brightness:
+                min: 120
+                max: 180
+  daytime:
+    icon: 📚
+    description: Quiet library atmosphere with warm torch lighting and door sounds
+    metadata:
+      tags:
+      - social
+      - indoor
+      - quiet
+      - reading
+      - study
+      - medieval
+      intensity: low
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/xkeril/sounds/620683/
+          volume: 60
+        - url: https://freesound.org/people/OwlStorm/sounds/212181/
+          volume: 35
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/lartti/sounds/513779/
+          volume: 30
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Kostas17/sounds/536365/
+          volume: 20
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 128
+                - 128
+                - 128
+                variance:
+                - 20
+                - 20
+                - 20
+              brightness:
+                min: 74
+                max: 255
+              flash:
+                probability: 0.05
+                color:
+                - 255
+                - 255
+                - 255
+                brightness: 230
+                duration: 1.0
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 10
+                speed_max: 190
+              brightness:
+                min: 195
+                max: 255
+            battlefield:
+              type: inherit_overhead
+  afternoon:
+    icon: 📚
+    description: Peaceful afternoon library with warm sunbeams and studious atmosphere
+    metadata:
+      tags:
+      - social
+      - indoor
+      - quiet
+      - afternoon
+      - study
+      - medieval
+      intensity: low
+      suitable_for:
+      - research
+      - studying
+      - afternoon reading
+      - quiet meetings
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/xkeril/sounds/620683/
+          volume: 60
+        - url: https://freesound.org/people/OwlStorm/sounds/212181/
+          volume: 35
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/lartti/sounds/513779/
+          volume: 30
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Kostas17/sounds/536365/
+          volume: 20
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 165
+                - 130
+                variance:
+                - 28
+                - 25
+                - 20
+              brightness:
+                min: 130
+                max: 200
+              flash:
+                probability: 0.04
+                color:
+                - 255
+                - 240
+                - 200
+                brightness: 230
+                duration: 1.5
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 185
+                - 155
+                variance:
+                - 32
+                - 30
+                - 24
+              brightness:
+                min: 170
+                max: 240
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 160
+                - 145
+                - 115
+                variance:
+                - 24
+                - 22
+                - 18
+              brightness:
+                min: 110
+                max: 175
+  evening:
+    icon: 📚
+    description: Late night library by candlelight with deep shadows and quiet solitude
+    metadata:
+      tags:
+      - social
+      - indoor
+      - quiet
+      - night
+      - study
+      - candlelit
+      - medieval
+      intensity: low
+      suitable_for:
+      - late night research
+      - secret study
+      - forbidden texts
+      - quiet mystery
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/xkeril/sounds/620683/
+          volume: 45
+        - url: https://freesound.org/people/OwlStorm/sounds/212181/
+          volume: 40
+          optional: true
+          probability: 0.7
+        - url: https://freesound.org/people/Anthousai/sounds/398734/
+          volume: 20
+          optional: true
+          probability: 0.3
+        - url: https://freesound.org/people/lartti/sounds/513779/
+          volume: 25
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 14
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 80
+                - 70
+                - 50
+                variance:
+                - 20
+                - 18
+                - 15
+              brightness:
+                min: 40
+                max: 100
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 10
+                speed_max: 100
+              brightness:
+                min: 80
+                max: 140
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 60
+                - 50
+                - 35
+                variance:
+                - 15
+                - 14
+                - 12
+              brightness:
+                min: 30
+                max: 80
+engines: *id002

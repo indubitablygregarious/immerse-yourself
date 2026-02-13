@@ -1,0 +1,432 @@
+name: Forest
+category: forest
+description: Sunlit woodland with dappled light through the canopy
+icon: 🌲
+metadata:
+  tags:
+  - forest
+  - woods
+  - nature
+  - outdoor
+  - travel
+  - exploration
+  intensity: low
+  suitable_for: &id001
+  - forest travel
+  - woodland exploration
+  - druid encounters
+  - ranger territory
+time_variants:
+  morning:
+    icon: 🌅
+    description: Early morning forest with dawn chorus of birds and misty atmosphere
+    metadata:
+      tags:
+      - forest
+      - woods
+      - nature
+      - outdoor
+      - morning
+      - dawn
+      - birds
+      intensity: low
+      suitable_for:
+      - forest travel
+      - woodland exploration
+      - peaceful morning
+      - ranger camp
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 70
+        - url: https://freesound.org/people/klankbeeld/sounds/273162/
+          volume: 60
+        - url: https://freesound.org/people/InspectorJ/sounds/439472/
+          optional: true
+          probability: 0.5
+          volume: 35
+          max_duration: 10
+          fade_duration: 3
+        - url: https://freesound.org/people/Garuda1982/sounds/627335/
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/arpeggio1980/sounds/523389/
+          volume: 40
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/cher1101/sounds/671883/
+          volume: 35
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 18
+          flash_variance: 25
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 140
+                - 100
+                variance:
+                - 25
+                - 20
+                - 15
+              brightness:
+                min: 100
+                max: 200
+              flash:
+                probability: 0.06
+                color:
+                - 255
+                - 220
+                - 150
+                brightness: 230
+                duration: 2.0
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 180
+                - 140
+                variance:
+                - 30
+                - 25
+                - 20
+              brightness:
+                min: 160
+                max: 240
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 60
+                - 70
+                - 50
+                variance:
+                - 15
+                - 18
+                - 12
+              brightness:
+                min: 70
+                max: 150
+  daytime:
+    icon: 🌲
+    description: Sunlit woodland with dappled light through the canopy
+    metadata:
+      tags:
+      - forest
+      - woods
+      - nature
+      - outdoor
+      - travel
+      - exploration
+      intensity: low
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/klankbeeld/sounds/273162/
+          volume: 60
+        - url: https://freesound.org/people/klankbeeld/sounds/789509/
+          volume: 55
+        - url: https://freesound.org/people/arpeggio1980/sounds/523389/
+          volume: 50
+        - url: https://freesound.org/people/cher1101/sounds/671883/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/KVV_Audio/sounds/800712/
+          volume: 35
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 15
+          flash_variance: 30
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 45
+                - 90
+                - 40
+                variance:
+                - 15
+                - 25
+                - 15
+              brightness:
+                min: 80
+                max: 180
+              flash:
+                probability: 0.08
+                color:
+                - 255
+                - 240
+                - 180
+                brightness: 220
+                duration: 1.5
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 120
+                - 160
+                - 80
+                variance:
+                - 20
+                - 30
+                - 20
+              brightness:
+                min: 150
+                max: 255
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 80
+                - 60
+                - 40
+                variance:
+                - 15
+                - 15
+                - 10
+              brightness:
+                min: 60
+                max: 140
+  afternoon:
+    icon: 🌳
+    description: Warm afternoon forest with buzzing insects and dappled sunlight
+    metadata:
+      tags:
+      - forest
+      - woods
+      - nature
+      - outdoor
+      - afternoon
+      - warm
+      - insects
+      intensity: low
+      suitable_for:
+      - forest travel
+      - woodland exploration
+      - afternoon rest
+      - nature walk
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/harryScary/sounds/268958/
+        - url: https://freesound.org/people/TRP/sounds/715693/
+          optional: true
+          probability: 0.5
+          volume: 65
+        - url: https://freesound.org/people/klankbeeld/sounds/625003/
+        - url: https://freesound.org/people/forestfjord/sounds/816089/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/arpeggio1980/sounds/523389/
+          volume: 50
+        - url: https://freesound.org/people/cher1101/sounds/671883/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/KVV_Audio/sounds/800712/
+          volume: 35
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 15
+          flash_variance: 30
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 60
+                - 100
+                - 45
+                variance:
+                - 18
+                - 28
+                - 18
+              brightness:
+                min: 120
+                max: 220
+              flash:
+                probability: 0.1
+                color:
+                - 255
+                - 245
+                - 200
+                brightness: 250
+                duration: 1.2
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 140
+                - 180
+                - 100
+                variance:
+                - 25
+                - 35
+                - 25
+              brightness:
+                min: 180
+                max: 255
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 90
+                - 75
+                - 50
+                variance:
+                - 18
+                - 18
+                - 12
+              brightness:
+                min: 80
+                max: 160
+  evening:
+    icon: 🌲
+    description: Dark forest at night with owls, crickets, and mysterious shadows
+    metadata:
+      tags:
+      - forest
+      - woods
+      - nature
+      - outdoor
+      - night
+      - dark
+      - mysterious
+      intensity: medium
+      suitable_for:
+      - night travel
+      - woodland mystery
+      - ambush setup
+      - nocturnal creatures
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/kyles/sounds/450995/
+        - url: https://freesound.org/people/kyles/sounds/453860/
+          optional: true
+          probability: 0.5
+          volume: 65
+        - url: https://freesound.org/people/Anthousai/sounds/398734/
+          volume: 50
+        - url: https://freesound.org/people/felix.blume/sounds/135561/
+          optional: true
+          probability: 0.5
+          volume: 45
+        - url: https://freesound.org/people/KrystianPawlowski/sounds/586936/
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/arpeggio1980/sounds/523389/
+          volume: 35
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Taure/sounds/380156/
+          volume: 30
+          optional: true
+          probability: 0.3
+      lights:
+        enabled: true
+        animation:
+          cycletime: 20
+          flash_variance: 20
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 15
+                - 25
+                - 35
+                variance:
+                - 10
+                - 12
+                - 15
+              brightness:
+                min: 20
+                max: 80
+              flash:
+                probability: 0.03
+                color:
+                - 180
+                - 200
+                - 220
+                brightness: 120
+                duration: 2.5
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 20
+                - 30
+                - 50
+                variance:
+                - 15
+                - 18
+                - 25
+              brightness:
+                min: 30
+                max: 100
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 10
+                - 12
+                - 15
+                variance:
+                - 8
+                - 10
+                - 12
+              brightness:
+                min: 10
+                max: 50
+engines: *id002

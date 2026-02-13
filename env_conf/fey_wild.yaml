@@ -1,0 +1,92 @@
+name: "Fey Wild"
+category: "celestial"
+description: "Enchanted magical forest with tinkling bells, giggling sprites, and otherworldly beauty"
+icon: "🧚"
+
+metadata:
+  tags: ["outdoor", "fey", "magical", "forest", "fairy", "enchanted", "otherworldly"]
+  intensity: "medium"
+  suitable_for: ["fey encounters", "fairy courts", "magical quests", "enchanted locations"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:transition"
+
+  spotify:
+    enabled: false
+
+  atmosphere:
+    enabled: true
+    min_sounds: 3
+    max_sounds: 5
+    mix:
+      # Magical chimes/bells
+      - url: "https://freesound.org/people/bone666138/sounds/198877/"
+        volume: 55
+
+      # Mystical forest birds
+      - url: "https://freesound.org/people/nlux/sounds/620967/"
+        optional: true
+        probability: 0.5
+        volume: 50
+      - url: "https://freesound.org/people/BristolStories/sounds/51704/"
+        optional: true
+        probability: 0.5
+        volume: 50
+
+      # Fairy giggles/whispers
+      - url: "https://freesound.org/people/petebuchwald/sounds/271355/"
+        optional: true
+        probability: 0.5
+        volume: 40
+
+      # Magical sparkle sounds
+      - url: "https://freesound.org/people/suntemple/sounds/253172/"
+        volume: 35
+        optional: true
+        probability: 0.5
+
+      # Gentle stream
+      - url: "https://freesound.org/people/designerschoice/sounds/809022/"
+        optional: true
+        volume: 40
+        probability: 0.4
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 8
+
+      groups:
+        backdrop:
+          type: "rgb"
+          rgb:
+            base: [150, 100, 200]  # Mystical purple
+            variance: [50, 40, 50]
+          brightness:
+            min: 120
+            max: 200
+
+        overhead:
+          type: "rgb"
+          rgb:
+            base: [100, 200, 150]  # Magical green
+            variance: [40, 50, 40]
+          brightness:
+            min: 140
+            max: 220
+
+        battlefield:
+          type: "rgb"
+          rgb:
+            base: [180, 150, 255]  # Ethereal violet
+            variance: [45, 40, 50]
+          brightness:
+            min: 100
+            max: 180
+          flash:
+            probability: 0.12
+            color: [255, 200, 255]  # Fairy sparkle
+            brightness: 230
+            duration: 0.4

@@ -1,0 +1,345 @@
+name: Blacksmith
+category: interiors
+description: Hot forge with hammer on anvil, bellows, and crackling fire
+icon: ⚒️
+metadata:
+  tags:
+  - indoor
+  - craft
+  - forge
+  - metal
+  - fire
+  intensity: medium
+  suitable_for: &id001
+  - shopping
+  - crafting scenes
+  - weapon upgrades
+  - town services
+time_variants:
+  morning:
+    icon: ⚒️
+    description: Early morning forge firing up with preparations for the day's work
+    metadata:
+      tags:
+      - indoor
+      - craft
+      - forge
+      - morning
+      - fire
+      - preparation
+      intensity: low
+      suitable_for:
+      - early orders
+      - weapon pickup
+      - commission discussion
+      - town services
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 55
+        - url: https://freesound.org/people/ldezem/sounds/386393/
+          volume: 50
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 25
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 10
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 140
+                - 100
+                variance:
+                - 30
+                - 25
+                - 18
+              brightness:
+                min: 120
+                max: 190
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 190
+                - 160
+                - 120
+                variance:
+                - 32
+                - 28
+                - 22
+              brightness:
+                min: 150
+                max: 220
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 160
+                - 110
+                - 60
+                variance:
+                - 28
+                - 22
+                - 15
+              brightness:
+                min: 100
+                max: 170
+  daytime:
+    icon: ⚒️
+    description: Hot forge with hammer on anvil, bellows, and crackling fire
+    metadata:
+      tags:
+      - indoor
+      - craft
+      - forge
+      - metal
+      - fire
+      intensity: medium
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/ldezem/sounds/386393/
+          volume: 75
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 60
+        - url: https://freesound.org/people/MrAuralization/sounds/274846/
+          volume: 45
+          optional: true
+          probability: 0.6
+      lights:
+        enabled: true
+        animation:
+          cycletime: 8
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 80
+                - 30
+                variance:
+                - 30
+                - 20
+                - 10
+              brightness:
+                min: 100
+                max: 180
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                speed_min: 50
+                speed_max: 150
+              brightness:
+                min: 150
+                max: 220
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 100
+                - 40
+                variance:
+                - 40
+                - 30
+                - 15
+              brightness:
+                min: 120
+                max: 200
+  afternoon:
+    icon: ⚒️
+    description: Busy afternoon forge at peak heat with heavy hammering and glowing
+      metal
+    metadata:
+      tags:
+      - indoor
+      - craft
+      - forge
+      - afternoon
+      - fire
+      - busy
+      - hot
+      intensity: high
+      suitable_for:
+      - shopping
+      - crafting scenes
+      - weapon upgrades
+      - commission work
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/ldezem/sounds/386393/
+          volume: 80
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 70
+        - url: https://freesound.org/people/MrAuralization/sounds/274846/
+          volume: 50
+          optional: true
+          probability: 0.7
+      lights:
+        enabled: true
+        animation:
+          cycletime: 6
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 90
+                - 35
+                variance:
+                - 35
+                - 25
+                - 12
+              brightness:
+                min: 130
+                max: 210
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                speed_min: 80
+                speed_max: 180
+              brightness:
+                min: 180
+                max: 245
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 220
+                - 120
+                - 50
+                variance:
+                - 45
+                - 35
+                - 18
+              brightness:
+                min: 150
+                max: 230
+  evening:
+    icon: ⚒️
+    description: Late night forge with dying embers and quiet cooling metal
+    metadata:
+      tags:
+      - indoor
+      - craft
+      - forge
+      - night
+      - fire
+      - quiet
+      - embers
+      intensity: low
+      suitable_for:
+      - late pickup
+      - secret commissions
+      - after hours meeting
+      - quiet work
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 4
+        mix:
+        - url: https://freesound.org/people/NickTayloe/sounds/813328/
+          volume: 45
+        - url: https://freesound.org/people/ldezem/sounds/386393/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/kyles/sounds/450995/
+          optional: true
+          probability: 0.5
+          volume: 20
+        - url: https://freesound.org/people/kyles/sounds/453860/
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 140
+                - 60
+                - 25
+                variance:
+                - 30
+                - 20
+                - 12
+              brightness:
+                min: 50
+                max: 120
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                speed_min: 10
+                speed_max: 80
+              brightness:
+                min: 80
+                max: 140
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 100
+                - 50
+                - 25
+                variance:
+                - 25
+                - 18
+                - 10
+              brightness:
+                min: 40
+                max: 100
+engines: *id002

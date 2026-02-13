@@ -1,0 +1,32 @@
+# Battle Introduction Sound Collection
+# One sound is randomly selected and played when this config is referenced
+name: "Battle Intro"
+description: "Dramatic sounds to introduce combat - danger stings, sword draws, and war drums"
+
+sounds:
+  # Original danger sound from sounds/ directory
+  - file: "sounds/danger.opus"
+    description: "Original danger alert sound"
+
+  # Sword draw sounds
+  - url: "https://freesound.org/people/Qat/sounds/107589/"
+    description: "Sword being unsheathed"
+
+  - url: "https://freesound.org/people/visualasylum/sounds/329787/"
+    description: "Sword draw with metal tones"
+
+  - url: "https://freesound.org/people/Yap_Audio_Production/sounds/218477/"
+    description: "Sword unsheathe sound design"
+
+  # Dramatic stingers and drums
+  - url: "https://freesound.org/people/hykenfreak/sounds/248150/"
+    description: "Deep epic bass drum boom"
+
+  - url: "https://freesound.org/people/BraveLittleSpork/sounds/454621/"
+    description: "Tension drumbeats building"
+
+  - url: "https://freesound.org/people/xkeril/sounds/706752/"
+    description: "Nightmare tension sting"
+
+  - url: "https://freesound.org/people/AudioPapkin/sounds/822420/"
+    description: "Cinematic riser hit"

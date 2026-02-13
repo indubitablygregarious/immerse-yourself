@@ -1,0 +1,296 @@
+name: Travel
+category: travel
+description: Overland journey through fields and forests with birdsong and gentle wind
+icon: 🚶
+metadata:
+  tags:
+  - travel
+  - exploration
+  - overland
+  - journey
+  - wilderness
+  intensity: medium
+  suitable_for: &id001
+  - overworld travel
+  - exploration
+  - journey sequences
+time_variants:
+  daytime:
+    icon: 🚶
+    description: Daytime travel and exploration with ambient sounds
+    metadata:
+      tags:
+      - travel
+      - exploration
+      - outdoor
+      - daytime
+      - journey
+      intensity: medium
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/klankbeeld/sounds/273162/
+          volume: 60
+        - url: https://freesound.org/people/newlocknew/sounds/784341/
+          volume: 50
+        - url: https://freesound.org/people/arpeggio1980/sounds/523389/
+          volume: 45
+        - url: https://freesound.org/people/el_boss/sounds/561501/
+          volume: 35
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/cher1101/sounds/671883/
+          volume: 40
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/harryScary/sounds/268958/
+          optional: true
+          probability: 0.5
+          volume: 35
+        - url: https://freesound.org/people/TRP/sounds/715693/
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 12
+          flash_variance: 25
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 128
+                - 128
+                - 64
+                variance:
+                - 20
+                - 20
+                - 20
+              brightness:
+                min: 74
+                max: 255
+              flash:
+                probability: 0.05
+                color:
+                - 255
+                - 255
+                - 255
+                brightness: 230
+                duration: 1.0
+            overhead:
+              type: scene
+              scenes:
+                ids:
+                - 12
+                speed_min: 10
+                speed_max: 190
+              brightness:
+                min: 255
+                max: 255
+            battlefield:
+              type: inherit_overhead
+  afternoon:
+    icon: ☀️
+    description: Warm afternoon journey under the golden sun
+    metadata:
+      tags:
+      - travel
+      - exploration
+      - afternoon
+      - sunny
+      - warm
+      - golden hour
+      intensity: medium
+      suitable_for:
+      - afternoon travel
+      - sunny journeys
+      - open road
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/bruno.auzet/sounds/810412/
+          volume: 65
+        - url: https://freesound.org/people/klankbeeld/sounds/625003/
+        - url: https://freesound.org/people/forestfjord/sounds/816089/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/klankbeeld/sounds/434838/
+          volume: 45
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/brunoboselli/sounds/458113/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/harryScary/sounds/268958/
+          optional: true
+          probability: 0.5
+          volume: 40
+        - url: https://freesound.org/people/TRP/sounds/715693/
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 15
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 255
+                - 200
+                - 120
+                variance:
+                - 0
+                - 30
+                - 40
+              brightness:
+                min: 180
+                max: 255
+              flash:
+                probability: 0.03
+                color:
+                - 255
+                - 255
+                - 200
+                brightness: 255
+                duration: 1.0
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 255
+                - 240
+                - 180
+                variance:
+                - 0
+                - 15
+                - 30
+              brightness:
+                min: 220
+                max: 255
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 220
+                - 180
+                - 120
+                variance:
+                - 20
+                - 30
+                - 30
+              brightness:
+                min: 140
+                max: 200
+              flash:
+                probability: 0.04
+                color:
+                - 255
+                - 250
+                - 220
+                brightness: 230
+                duration: 0.8
+  evening:
+    icon: 🌙
+    description: Nighttime travel with very dark lighting, moonlight, and minimal
+      illumination
+    metadata:
+      tags:
+      - exploration
+      - travel
+      - nighttime
+      - dark
+      - mysterious
+      - moon
+      intensity: low
+      suitable_for:
+      - night travel
+      - mysterious journeys
+      - atmospheric exploration
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:transition
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/kyles/sounds/450995/
+        - url: https://freesound.org/people/kyles/sounds/453860/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/Anthousai/sounds/398734/
+          volume: 45
+        - url: https://freesound.org/people/taure/sounds/380156/
+          volume: 35
+          optional: true
+          probability: 0.3
+        - url: https://freesound.org/people/klankbeeld/sounds/583866/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/MeliaRoger/sounds/645706/
+          volume: 40
+          optional: true
+          probability: 0.4
+      lights:
+        enabled: true
+        animation:
+          cycletime: 6
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 0
+                - 0
+                - 0
+                variance:
+                - 10
+                - 10
+                - 10
+              brightness:
+                min: 0
+                max: 10
+            overhead:
+              type: 'off'
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 0
+                - 0
+                - 16
+                variance:
+                - 30
+                - 30
+                - 30
+              brightness:
+                min: 0
+                max: 20
+engines: *id002

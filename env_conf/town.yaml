@@ -1,0 +1,374 @@
+name: Town
+category: town
+description: Bustling medieval town with cobblestone streets and village sounds
+icon: 🏘️
+metadata:
+  tags:
+  - social
+  - town
+  - village
+  - medieval
+  - cobblestone
+  intensity: low
+  suitable_for: &id001
+  - town exploration
+  - social scenes
+  - shopping
+  - village encounters
+time_variants:
+  morning:
+    icon: 🏘️
+    description: Early morning town waking up with roosters, early risers, and soft
+      dawn light
+    metadata:
+      tags:
+      - social
+      - outdoor
+      - town
+      - morning
+      - dawn
+      - peaceful
+      - medieval
+      intensity: low
+      suitable_for:
+      - morning travel
+      - early errands
+      - leaving town
+      - starting adventures
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/InspectorJ/sounds/439472/
+          max_duration: 10
+        - url: https://freesound.org/people/Garuda1982/sounds/627335/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/klankbeeld/sounds/625333/
+          volume: 50
+        - url: https://freesound.org/people/YleArkisto/sounds/322565/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/craigsmith/sounds/437078/
+          volume: 30
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/SoundsExciting/sounds/428395/
+          volume: 35
+          optional: true
+          probability: 0.3
+      lights:
+        enabled: true
+        animation:
+          cycletime: 25
+          groups:
+            backdrop:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 160
+                - 120
+                variance:
+                - 35
+                - 30
+                - 25
+              brightness:
+                min: 140
+                max: 210
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 180
+                - 170
+                - 200
+                variance:
+                - 40
+                - 38
+                - 45
+              brightness:
+                min: 160
+                max: 230
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 150
+                - 130
+                - 100
+                variance:
+                - 25
+                - 22
+                - 18
+              brightness:
+                min: 100
+                max: 170
+  daytime:
+    icon: 🏘️
+    description: Bright daytime town atmosphere with torch backdrops, sun lighting,
+      and vibrant sky colors
+    metadata:
+      tags:
+      - social
+      - outdoor
+      - town
+      - daytime
+      - bright
+      - medieval
+      intensity: low
+      suitable_for: *id001
+    engines: &id002
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 6
+        mix:
+        - url: https://freesound.org/people/kevp888/sounds/752092/
+          volume: 70
+        - url: https://freesound.org/people/YleArkisto/sounds/322565/
+          volume: 55
+        - url: https://freesound.org/people/bolkmar/sounds/424790/
+          volume: 50
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/craigsmith/sounds/437078/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Emmaproductions/sounds/254370/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/Libra222/sounds/165529/
+          volume: 40
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/guynoland/sounds/549882/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/SoundsExciting/sounds/428395/
+          volume: 30
+          optional: true
+          probability: 0.2
+      lights:
+        enabled: true
+        animation:
+          cycletime: 30
+          groups:
+            backdrop:
+              type: scene
+              scenes:
+                ids:
+                - 31
+                speed_min: 10
+                speed_max: 190
+              brightness:
+                min: 235
+                max: 255
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 58
+                - 58
+                - 158
+                variance:
+                - 50
+                - 50
+                - 50
+              brightness:
+                min: 225
+                max: 255
+            battlefield:
+              type: inherit_overhead
+  afternoon:
+    icon: 🏘️
+    description: Busy afternoon town with peak activity, warm sun, and bustling streets
+    metadata:
+      tags:
+      - social
+      - outdoor
+      - town
+      - afternoon
+      - busy
+      - bright
+      - medieval
+      intensity: medium
+      suitable_for:
+      - town exploration
+      - social scenes
+      - shopping
+      - afternoon activities
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 3
+        max_sounds: 6
+        mix:
+        - url: https://freesound.org/people/kevp888/sounds/752092/
+          volume: 75
+        - url: https://freesound.org/people/YleArkisto/sounds/322565/
+          volume: 60
+        - url: https://freesound.org/people/bolkmar/sounds/424790/
+          volume: 55
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/craigsmith/sounds/437078/
+          volume: 45
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/Emmaproductions/sounds/254370/
+          volume: 35
+          optional: true
+          probability: 0.4
+        - url: https://freesound.org/people/Libra222/sounds/165529/
+          volume: 45
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 25
+          groups:
+            backdrop:
+              type: scene
+              scenes:
+                ids:
+                - 31
+                speed_min: 10
+                speed_max: 190
+              brightness:
+                min: 240
+                max: 255
+            overhead:
+              type: rgb
+              rgb:
+                base:
+                - 70
+                - 80
+                - 170
+                variance:
+                - 50
+                - 55
+                - 55
+              brightness:
+                min: 235
+                max: 255
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 200
+                - 180
+                - 140
+                variance:
+                - 35
+                - 32
+                - 28
+              brightness:
+                min: 180
+                max: 250
+  evening:
+    icon: 🌙
+    description: Nighttime town atmosphere with dim torch lighting, moonlight, and
+      dark sky
+    metadata:
+      tags:
+      - social
+      - outdoor
+      - town
+      - nighttime
+      - dark
+      - medieval
+      - moon
+      intensity: low
+      suitable_for:
+      - night exploration
+      - social scenes
+      - nighttime activities
+      - mysterious
+    engines:
+      sound:
+        enabled: true
+        file: sound_conf:squeaky_door
+      spotify:
+        enabled: false
+      atmosphere:
+        enabled: true
+        min_sounds: 2
+        max_sounds: 5
+        mix:
+        - url: https://freesound.org/people/kyles/sounds/450995/
+        - url: https://freesound.org/people/kyles/sounds/453860/
+          optional: true
+          probability: 0.5
+          volume: 55
+        - url: https://freesound.org/people/Anthousai/sounds/398734/
+          volume: 40
+        - url: https://freesound.org/people/LordStirling/sounds/483692/
+          volume: 45
+          optional: true
+          probability: 0.6
+        - url: https://freesound.org/people/trafficarte/sounds/457057/
+          volume: 30
+          optional: true
+          probability: 0.5
+        - url: https://freesound.org/people/misperpodcast/sounds/733590/
+          volume: 35
+          optional: true
+          probability: 0.5
+      lights:
+        enabled: true
+        animation:
+          cycletime: 30
+          groups:
+            backdrop:
+              type: scene
+              scenes:
+                ids:
+                - 5
+                - 28
+                - 31
+                speed_min: 10
+                speed_max: 190
+              brightness:
+                min: 0
+                max: 60
+            overhead:
+              type: 'off'
+            battlefield:
+              type: rgb
+              rgb:
+                base:
+                - 0
+                - 0
+                - 64
+                variance:
+                - 30
+                - 30
+                - 30
+              brightness:
+                min: 0
+                max: 20
+engines: *id002

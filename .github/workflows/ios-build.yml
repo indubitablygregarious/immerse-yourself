@@ -189,15 +189,16 @@ jobs:
           echo "Using Xcode source dir: $XCODE_SRC"
 
           # Copy YAML config directories into the Xcode source tree
+          # (may be empty in the public repo — that's fine)
           echo "Copying env_conf/ YAML files into $XCODE_SRC..."
           mkdir -p "$XCODE_SRC/env_conf"
-          cp ../../env_conf/*.yaml "$XCODE_SRC/env_conf/"
+          cp ../../env_conf/*.yaml "$XCODE_SRC/env_conf/" 2>/dev/null || true
           ENV_COUNT=$(ls "$XCODE_SRC/env_conf/"*.yaml 2>/dev/null | wc -l)
           echo "  Copied $ENV_COUNT env_conf files"
 
           echo "Copying sound_conf/ YAML files into $XCODE_SRC..."
           mkdir -p "$XCODE_SRC/sound_conf"
-          cp ../../sound_conf/*.yaml "$XCODE_SRC/sound_conf/"
+          cp ../../sound_conf/*.yaml "$XCODE_SRC/sound_conf/" 2>/dev/null || true
           SND_COUNT=$(ls "$XCODE_SRC/sound_conf/"*.yaml 2>/dev/null | wc -l)
           echo "  Copied $SND_COUNT sound_conf files"
 
@@ -205,8 +206,8 @@ jobs:
           echo "Copying into gen/apple/Assets/ for resource_dir fallback..."
           mkdir -p gen/apple/Assets/env_conf
           mkdir -p gen/apple/Assets/sound_conf
-          cp ../../env_conf/*.yaml gen/apple/Assets/env_conf/
-          cp ../../sound_conf/*.yaml gen/apple/Assets/sound_conf/
+          cp ../../env_conf/*.yaml gen/apple/Assets/env_conf/ 2>/dev/null || true
+          cp ../../sound_conf/*.yaml gen/apple/Assets/sound_conf/ 2>/dev/null || true
 
           # Inject folder references into pbxproj so Xcode includes them
           # in the "Copy Bundle Resources" build phase

@@ -1,21 +1,22 @@
-//! Sound engine for playing audio files via rodio.
+//! Sound engine for playing audio files via kira.
 
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use rodio::{Decoder, Sink};
+use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
+use kira::sound::PlaybackState;
+use kira::Tween;
 
 use crate::download_queue::{download_sound, find_downloaded_file, parse_freesound_url};
-use crate::engines::audio_output::get_output_stream_handle;
+use crate::engines::audio_output::{is_audio_available, volume_to_db, with_audio_manager};
 use crate::error::{Error, Result};
 
-/// Sound engine that plays audio files using rodio.
+/// Sound engine that plays audio files using kira.
 pub struct SoundEngine {
     project_root: PathBuf,
     cache_dir: PathBuf,
     user_content_dir: Option<PathBuf>,
-    active_sinks: Arc<Mutex<Vec<Sink>>>,
+    active_handles: Arc<Mutex<Vec<StaticSoundHandle>>>,
     available: bool,
 }
 
@@ -29,7 +30,7 @@ impl SoundEngine {
 
     /// Creates a new sound engine with an explicit cache directory for freesound downloads.
     pub fn new_with_cache_dir(project_root: PathBuf, cache_dir: PathBuf) -> Self {
-        let available = get_output_stream_handle().is_some();
+        let available = is_audio_available();
         if !available {
             tracing::warn!("No audio output device detected. Sound playback will be disabled.");
         }
@@ -38,7 +39,7 @@ impl SoundEngine {
             project_root,
             cache_dir,
             user_content_dir: None,
-            active_sinks: Arc::new(Mutex::new(Vec::new())),
+            active_handles: Arc::new(Mutex::new(Vec::new())),
             available,
         }
     }
@@ -50,19 +51,24 @@ impl SoundEngine {
 
     /// Plays a sound file synchronously (blocks until complete).
     pub fn play(&self, file: &str) -> Result<()> {
-        let handle = get_output_stream_handle().ok_or(Error::NoAudioPlayer)?;
         let path = self.resolve_path(file)?;
+        let sound_data = StaticSoundData::from_file(&path)
+            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", path.display(), e)))?;
 
-        let file = std::fs::File::open(&path)
-            .map_err(|e| Error::SoundPlayback(format!("Failed to open {}: {}", path.display(), e)))?;
-        let source = Decoder::new(BufReader::new(file))
-            .map_err(|e| Error::SoundPlayback(format!("Failed to decode {}: {}", path.display(), e)))?;
+        let mut handle = with_audio_manager(|mgr| mgr.play(sound_data))
+            .ok_or(Error::NoAudioPlayer)?
+            .map_err(|e| Error::SoundPlayback(format!("{}", e)))?;
 
-        let sink = Sink::try_new(handle)
-            .map_err(|e| Error::SoundPlayback(e.to_string()))?;
-        sink.append(source);
-        sink.sleep_until_end();
+        // Block until sound finishes
+        loop {
+            match handle.state() {
+                PlaybackState::Playing | PlaybackState::Pausing | PlaybackState::Resuming => {}
+                _ => break,
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
 
+        handle.stop(Tween::default());
         Ok(())
     }
 
@@ -73,21 +79,17 @@ impl SoundEngine {
 
     /// Plays a sound file asynchronously with a specific volume (0-100).
     pub fn play_async_with_volume(&self, file: &str, volume: u8) -> Result<()> {
-        let handle = get_output_stream_handle().ok_or(Error::NoAudioPlayer)?;
         let path = self.resolve_path(file)?;
+        let sound_data = StaticSoundData::from_file(&path)
+            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", path.display(), e)))?
+            .volume(volume_to_db(volume));
 
-        let file = std::fs::File::open(&path)
-            .map_err(|e| Error::SoundPlayback(format!("Failed to open {}: {}", path.display(), e)))?;
-        let source = Decoder::new(BufReader::new(file))
-            .map_err(|e| Error::SoundPlayback(format!("Failed to decode {}: {}", path.display(), e)))?;
+        let handle = with_audio_manager(|mgr| mgr.play(sound_data))
+            .ok_or(Error::NoAudioPlayer)?
+            .map_err(|e| Error::SoundPlayback(format!("{}", e)))?;
 
-        let sink = Sink::try_new(handle)
-            .map_err(|e| Error::SoundPlayback(e.to_string()))?;
-        sink.set_volume(volume as f32 / 100.0);
-        sink.append(source);
-
-        if let Ok(mut sinks) = self.active_sinks.lock() {
-            sinks.push(sink);
+        if let Ok(mut handles) = self.active_handles.lock() {
+            handles.push(handle);
         }
 
         Ok(())
@@ -98,33 +100,26 @@ impl SoundEngine {
     where
         F: FnOnce() + Send + 'static,
     {
-        let handle = get_output_stream_handle().ok_or(Error::NoAudioPlayer)?;
         let path = self.resolve_path(file)?;
+        let sound_data = StaticSoundData::from_file(&path)
+            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", path.display(), e)))?;
 
-        let file = std::fs::File::open(&path)
-            .map_err(|e| Error::SoundPlayback(format!("Failed to open {}: {}", path.display(), e)))?;
-        let source = Decoder::new(BufReader::new(file))
-            .map_err(|e| Error::SoundPlayback(format!("Failed to decode {}: {}", path.display(), e)))?;
+        let handle = with_audio_manager(|mgr| mgr.play(sound_data))
+            .ok_or(Error::NoAudioPlayer)?
+            .map_err(|e| Error::SoundPlayback(format!("{}", e)))?;
 
-        let sink = Sink::try_new(handle)
-            .map_err(|e| Error::SoundPlayback(e.to_string()))?;
-        sink.append(source);
-
-        let sinks = Arc::clone(&self.active_sinks);
-        if let Ok(mut s) = sinks.lock() {
-            s.push(sink);
+        if let Ok(mut handles) = self.active_handles.lock() {
+            handles.push(handle);
         }
 
-        // Spawn thread that waits for the last-added sink to finish, then calls callback.
-        // We find it by checking empty state on the sink we just added (last in vec).
+        let handles_clone = Arc::clone(&self.active_handles);
         std::thread::spawn(move || {
-            // Poll until our sink is done. We can't easily hold the Sink outside the vec,
-            // so just wait in a loop checking the last sink.
             loop {
                 std::thread::sleep(std::time::Duration::from_millis(100));
-                let done = if let Ok(s) = sinks.lock() {
-                    // Check if all sinks are done (conservative approach)
-                    s.last().map_or(true, |sink| sink.empty())
+                let done = if let Ok(handles) = handles_clone.lock() {
+                    handles.last().map_or(true, |h| {
+                        !matches!(h.state(), PlaybackState::Playing | PlaybackState::Pausing | PlaybackState::Resuming)
+                    })
                 } else {
                     true
                 };
@@ -142,9 +137,9 @@ impl SoundEngine {
     pub fn stop_all(&self) -> usize {
         let mut count = 0;
 
-        if let Ok(mut sinks) = self.active_sinks.lock() {
-            for sink in sinks.drain(..) {
-                sink.stop();
+        if let Ok(mut handles) = self.active_handles.lock() {
+            for mut handle in handles.drain(..) {
+                handle.stop(Tween::default());
                 count += 1;
             }
         }
@@ -154,18 +149,18 @@ impl SoundEngine {
 
     /// Pauses all currently playing sounds.
     pub fn pause_all(&self) {
-        if let Ok(sinks) = self.active_sinks.lock() {
-            for sink in sinks.iter() {
-                sink.pause();
+        if let Ok(mut handles) = self.active_handles.lock() {
+            for handle in handles.iter_mut() {
+                handle.pause(Tween::default());
             }
         }
     }
 
     /// Resumes all currently paused sounds.
     pub fn resume_all(&self) {
-        if let Ok(sinks) = self.active_sinks.lock() {
-            for sink in sinks.iter() {
-                sink.play();
+        if let Ok(mut handles) = self.active_handles.lock() {
+            for handle in handles.iter_mut() {
+                handle.resume(Tween::default());
             }
         }
     }
@@ -276,6 +271,8 @@ impl SoundEngine {
     }
 
     /// Downloads a sound from a URL to the cache directory.
+    /// Runs the download on a separate OS thread to avoid panicking when called
+    /// from within Tauri's Tokio runtime (reqwest::blocking creates its own runtime).
     fn download_sound_url(&self, url: &str) -> Result<PathBuf> {
         let cache_dir = &self.cache_dir;
         std::fs::create_dir_all(cache_dir).ok();
@@ -288,16 +285,26 @@ impl SoundEngine {
             }
         }
 
-        // Download using the shared download function (same as atmosphere engine)
-        download_sound(url, cache_dir).map_err(|e| Error::SoundPlayback(e))
+        // Must run on a plain OS thread — reqwest::blocking creates an internal
+        // Tokio runtime which panics if nested inside Tauri's runtime.
+        let cache_dir_owned = cache_dir.clone();
+        let url_owned = url.to_string();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(download_sound(&url_owned, &cache_dir_owned));
+        });
+
+        rx.recv()
+            .map_err(|_| Error::SoundPlayback("Download thread failed".to_string()))?
+            .map_err(Error::SoundPlayback)
     }
 
     /// Returns the number of currently playing sounds.
-    /// Cleans up finished sinks as a side effect.
+    /// Cleans up finished handles as a side effect.
     pub fn playing_count(&self) -> usize {
-        if let Ok(mut sinks) = self.active_sinks.lock() {
-            sinks.retain(|sink| !sink.empty());
-            sinks.len()
+        if let Ok(mut handles) = self.active_handles.lock() {
+            handles.retain(|h| matches!(h.state(), PlaybackState::Playing | PlaybackState::Pausing | PlaybackState::Resuming));
+            handles.len()
         } else {
             0
         }
@@ -311,7 +318,7 @@ impl SoundEngine {
     /// Returns the name of the audio backend.
     pub fn player_name(&self) -> Option<&str> {
         if self.available {
-            Some("rodio")
+            Some("kira")
         } else {
             None
         }
@@ -361,5 +368,58 @@ mod tests {
 
         let result = engine.resolve_path("nonexistent.wav");
         assert!(matches!(result, Err(Error::SoundFileNotFound(_))));
+    }
+
+    /// Verifies that download_sound_url runs on a separate OS thread and doesn't
+    /// panic with "Cannot drop a runtime" when called inside an existing Tokio runtime.
+    #[test]
+    fn test_download_sound_url_no_nested_runtime_panic() {
+        // Create a Tokio runtime to simulate being called from within Tauri
+        let rt = tokio::runtime::Runtime::new().unwrap();
+
+        rt.block_on(async {
+            let temp_dir = TempDir::new().unwrap();
+            let engine = SoundEngine::new(temp_dir.path());
+
+            // This URL won't resolve (no network in tests), but the important thing
+            // is it doesn't panic with a nested runtime error. It should return an error.
+            let result = engine.download_sound_url("https://freesound.org/people/testuser/sounds/99999/");
+            assert!(result.is_err(), "Expected download error (no network), but should not panic");
+        });
+    }
+
+    #[test]
+    fn test_download_sound_url_returns_cached_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().join("freesound.org");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        // Create a fake cached file matching the freesound naming convention:
+        // find_downloaded_file expects "{creator}_{sound_id}_" prefix
+        let cached_file = cache_dir.join("testuser_12345_campfire.wav");
+        std::fs::write(&cached_file, b"fake audio data").unwrap();
+
+        let engine = SoundEngine::new(temp_dir.path());
+
+        let result = engine.download_sound_url("https://freesound.org/people/testuser/sounds/12345/");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), cached_file);
+    }
+
+    #[test]
+    fn test_stop_all_returns_count() {
+        let temp_dir = TempDir::new().unwrap();
+        let engine = SoundEngine::new(temp_dir.path());
+
+        // No handles active, should return 0
+        assert_eq!(engine.stop_all(), 0);
+    }
+
+    #[test]
+    fn test_playing_count_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let engine = SoundEngine::new(temp_dir.path());
+
+        assert_eq!(engine.playing_count(), 0);
     }
 }

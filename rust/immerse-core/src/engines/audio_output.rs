@@ -1,43 +1,45 @@
 //! Shared audio output singleton.
 //!
-//! `OutputStream` is `!Send + !Sync` (it wraps a cpal Stream with a raw pointer),
-//! so it must live on the thread that created it. We spawn a dedicated thread to
-//! hold the OutputStream alive and share only the `OutputStreamHandle` (which is
-//! `Send + Sync`) via a `OnceLock`.
+//! kira's `AudioManager` owns a single cpal stream internally and runs a real
+//! mixer on its own audio thread. Unlike rodio's `OutputStream`, `AudioManager`
+//! is `Send`, so no dedicated background thread is needed.
 
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
-use rodio::OutputStreamHandle;
+use kira::{AudioManager, AudioManagerSettings, DefaultBackend, Decibels};
 
-static AUDIO_HANDLE: OnceLock<Option<OutputStreamHandle>> = OnceLock::new();
+/// Global audio manager singleton. kira's AudioManager owns the single cpal
+/// stream internally — all sounds play through its mixer.
+static AUDIO_MANAGER: OnceLock<Option<Mutex<AudioManager<DefaultBackend>>>> = OnceLock::new();
 
-/// Returns a reference to the shared `OutputStreamHandle`, or `None` if no
-/// audio device is available.
-pub fn get_output_stream_handle() -> Option<&'static OutputStreamHandle> {
-    AUDIO_HANDLE
-        .get_or_init(|| {
-            let (tx, rx) = std::sync::mpsc::sync_channel(1);
+/// Executes a closure with mutable access to the shared AudioManager.
+/// Returns None if no audio device is available.
+pub fn with_audio_manager<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut AudioManager<DefaultBackend>) -> R,
+{
+    let slot = AUDIO_MANAGER.get_or_init(|| {
+        match AudioManager::<DefaultBackend>::new(AudioManagerSettings::default()) {
+            Ok(manager) => Some(Mutex::new(manager)),
+            Err(e) => {
+                tracing::error!("Failed to initialize audio: {}", e);
+                None
+            }
+        }
+    });
+    slot.as_ref().map(|m| f(&mut m.lock().unwrap()))
+}
 
-            std::thread::Builder::new()
-                .name("audio-output".into())
-                .spawn(move || {
-                    match rodio::OutputStream::try_default() {
-                        Ok((_stream, handle)) => {
-                            let _ = tx.send(Some(handle));
-                            // Park forever to keep _stream alive for the process lifetime.
-                            loop {
-                                std::thread::park();
-                            }
-                        }
-                        Err(e) => {
-                            tracing::error!("Failed to initialize audio output: {}", e);
-                            let _ = tx.send(None);
-                        }
-                    }
-                })
-                .ok();
+/// Returns whether an audio device is available.
+pub fn is_audio_available() -> bool {
+    with_audio_manager(|_| ()).is_some()
+}
 
-            rx.recv().unwrap_or(None)
-        })
-        .as_ref()
+/// Converts 0-100 integer volume to kira Decibels.
+pub fn volume_to_db(volume: u8) -> Decibels {
+    if volume == 0 {
+        Decibels::SILENCE
+    } else {
+        Decibels(20.0 * (volume as f32 / 100.0).log10())
+    }
 }

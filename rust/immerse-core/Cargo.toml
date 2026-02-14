@@ -39,9 +39,10 @@ open = "5"
 # Regex for URL parsing
 regex = "1"
 
-# Cross-platform audio playback (uses CoreAudio on iOS, ALSA/PulseAudio on Linux)
-rodio = "0.20"
+# Cross-platform audio playback (game audio mixer — single cpal stream, real internal mixer)
+kira = "0.11"
 
 [dev-dependencies]
 tempfile = "3"
 tokio-test = "0.4"
+hound = "3"

@@ -1,15 +1,21 @@
 //! Atmosphere engine for ambient sound playback from freesound.org URLs.
+//!
+//! All atmosphere sounds play through a single kira `AudioManager` (one cpal
+//! stream). Each sound gets its own `StaticSoundHandle` with per-sound volume
+//! control via kira's internal mixer. No background stream-keeper threads needed.
 
 use std::collections::HashMap;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-use rodio::{Decoder, Sink, Source};
+use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
+use kira::sound::PlaybackState;
+use kira::Tween;
 
 use crate::download_queue::DownloadQueue;
-use crate::engines::audio_output::get_output_stream_handle;
+use crate::engines::audio_output::{volume_to_db, with_audio_manager};
 use crate::error::{Error, Result};
 
 /// Atmosphere engine for playing looping ambient sounds.
@@ -21,10 +27,9 @@ pub struct AtmosphereEngine {
     generation: Arc<AtomicU64>,
 }
 
-/// A playing atmosphere sound with its rodio Sink.
+/// A playing atmosphere sound backed by a kira StaticSoundHandle.
 struct ActiveSound {
-    sink: Arc<Sink>,
-    #[allow(dead_code)]
+    handle: StaticSoundHandle,
     volume: u8,
 }
 
@@ -128,8 +133,8 @@ impl AtmosphereEngine {
             Error::AtmospherePlayback("Failed to acquire lock".to_string())
         })?;
 
-        if let Some(active) = sounds.remove(url) {
-            active.sink.stop();
+        if let Some(mut active) = sounds.remove(url) {
+            active.handle.stop(Tween::default());
             tracing::info!("Stopped atmosphere sound: {}", url);
         }
 
@@ -144,8 +149,8 @@ impl AtmosphereEngine {
         let mut count = 0;
 
         if let Ok(mut sounds) = self.active_sounds.lock() {
-            for (url, active) in sounds.drain() {
-                active.sink.stop();
+            for (url, mut active) in sounds.drain() {
+                active.handle.stop(Tween::default());
                 count += 1;
                 tracing::info!("Stopped atmosphere sound: {}", url);
             }
@@ -154,14 +159,36 @@ impl AtmosphereEngine {
         count
     }
 
+    /// Stops all playing sounds EXCEPT those in the keep set.
+    /// Returns the number of sounds stopped.
+    pub fn stop_all_except(&self, keep_urls: &std::collections::HashSet<String>) -> usize {
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        let mut count = 0;
+        if let Ok(mut sounds) = self.active_sounds.lock() {
+            let to_remove: Vec<String> = sounds.keys()
+                .filter(|u| !keep_urls.contains(*u))
+                .cloned()
+                .collect();
+            for url in to_remove {
+                if let Some(mut active) = sounds.remove(&url) {
+                    active.handle.stop(Tween::default());
+                    count += 1;
+                    tracing::info!("Stopped atmosphere sound: {}", url);
+                }
+            }
+        }
+        count
+    }
+
     /// Sets the volume for a playing sound.
     pub fn set_volume(&self, url: &str, volume: u8) -> Result<()> {
-        let sounds = self.active_sounds.lock().map_err(|_| {
+        let mut sounds = self.active_sounds.lock().map_err(|_| {
             Error::AtmospherePlayback("Failed to acquire lock".to_string())
         })?;
 
-        if let Some(active) = sounds.get(url) {
-            active.sink.set_volume(volume as f32 / 100.0);
+        if let Some(active) = sounds.get_mut(url) {
+            active.handle.set_volume(volume_to_db(volume), Tween::default());
+            active.volume = volume;
             tracing::debug!("Set volume for {} to {}%", url, volume);
         }
 
@@ -204,9 +231,9 @@ impl AtmosphereEngine {
 
     /// Pauses all currently playing sounds.
     pub fn pause_all(&self) {
-        if let Ok(sounds) = self.active_sounds.lock() {
-            for (url, active) in sounds.iter() {
-                active.sink.pause();
+        if let Ok(mut sounds) = self.active_sounds.lock() {
+            for (url, active) in sounds.iter_mut() {
+                active.handle.pause(Tween::default());
                 tracing::debug!("Paused atmosphere sound: {}", url);
             }
         }
@@ -214,21 +241,23 @@ impl AtmosphereEngine {
 
     /// Resumes all currently paused sounds.
     pub fn resume_all(&self) {
-        if let Ok(sounds) = self.active_sounds.lock() {
-            for (url, active) in sounds.iter() {
-                active.sink.play();
+        if let Ok(mut sounds) = self.active_sounds.lock() {
+            for (url, active) in sounds.iter_mut() {
+                active.handle.resume(Tween::default());
                 tracing::debug!("Resumed atmosphere sound: {}", url);
             }
         }
     }
 
-    /// Returns true if all active sinks are paused (or there are no active sounds).
+    /// Returns true if all active sounds are paused (or there are no active sounds).
     pub fn is_paused(&self) -> bool {
         if let Ok(sounds) = self.active_sounds.lock() {
             if sounds.is_empty() {
                 return false;
             }
-            sounds.values().all(|active| active.sink.is_paused())
+            sounds.values().all(|active| {
+                matches!(active.handle.state(), PlaybackState::Paused | PlaybackState::Pausing)
+            })
         } else {
             false
         }
@@ -250,7 +279,10 @@ impl AtmosphereEngine {
     }
 }
 
-/// Internal function to start playback (used both directly and from callback).
+/// Internal function to start playback via the shared kira AudioManager.
+///
+/// Loads the file into a StaticSoundData, sets it to loop, plays it through the
+/// global AudioManager, and stores the handle for volume/stop control.
 fn start_playback_internal(
     url: &str,
     file_path: &Path,
@@ -259,77 +291,49 @@ fn start_playback_internal(
     fade_duration: Option<u32>,
     max_duration: Option<u32>,
 ) -> Result<()> {
-    let handle = get_output_stream_handle().ok_or_else(|| {
-        Error::AtmospherePlayback("No audio output device available".to_string())
-    })?;
+    // Load and configure sound — loop over entire file
+    let sound_data = StaticSoundData::from_file(file_path)
+        .map_err(|e| {
+            Error::AtmospherePlayback(format!("Failed to load {}: {}", file_path.display(), e))
+        })?
+        .loop_region(..)
+        .volume(volume_to_db(volume));
 
-    let file = std::fs::File::open(file_path)
-        .map_err(|e| Error::AtmospherePlayback(format!("Failed to open {}: {}", file_path.display(), e)))?;
-    let source = Decoder::new(BufReader::new(file))
-        .map_err(|e| Error::AtmospherePlayback(format!("Failed to decode {}: {}", file_path.display(), e)))?;
+    // Play via shared AudioManager
+    let handle = with_audio_manager(|mgr| mgr.play(sound_data))
+        .ok_or_else(|| Error::AtmospherePlayback("No audio device available".into()))?
+        .map_err(|e| Error::AtmospherePlayback(format!("{}", e)))?;
 
-    // Loop the source infinitely (replaces ffplay -loop 0)
-    let looping_source = source.repeat_infinite();
-
-    let sink = Sink::try_new(handle)
-        .map_err(|e| Error::AtmospherePlayback(e.to_string()))?;
-    sink.set_volume(volume as f32 / 100.0);
-    sink.append(looping_source);
-
-    let sink = Arc::new(sink);
-
-    // Track the sound
-    let url_owned = url.to_string();
+    // Store handle
     {
         let mut sounds = active_sounds.lock().map_err(|_| {
             Error::AtmospherePlayback("Failed to acquire lock".to_string())
         })?;
-        sounds.insert(url_owned.clone(), ActiveSound { sink: Arc::clone(&sink), volume });
+        sounds.insert(url.to_string(), ActiveSound { handle, volume });
     }
 
-    tracing::info!("Started atmosphere sound: {} at volume {}%", url, volume);
+    tracing::info!(
+        "Started atmosphere sound: {} at volume {}% (file: {})",
+        url, volume, file_path.display()
+    );
 
-    // Handle max_duration and fade_duration
+    // Handle max_duration and fade_duration with timer threads
     match (max_duration, fade_duration) {
         (Some(max_dur), Some(fade_dur)) => {
-            // Both set: wait until (max_duration - fade_duration), then fade out
+            // Both set: wait until (max_duration - fade_duration), then fade-stop
             let active_sounds = Arc::clone(active_sounds);
-            let fade_sink = Arc::clone(&sink);
-            let initial_volume = volume;
+            let url_owned = url.to_string();
             std::thread::spawn(move || {
-                let delay_before_fade = if max_dur > fade_dur { max_dur - fade_dur } else { 0 };
-                if delay_before_fade > 0 {
-                    std::thread::sleep(std::time::Duration::from_secs(delay_before_fade as u64));
+                let delay = if max_dur > fade_dur { max_dur - fade_dur } else { 0 };
+                if delay > 0 {
+                    std::thread::sleep(Duration::from_secs(delay as u64));
                 }
-
-                // Fade out over fade_dur seconds
-                let steps = 20u32;
-                let step_duration_ms = (fade_dur as u64 * 1000) / steps as u64;
-
-                for step in 1..=steps {
-                    std::thread::sleep(std::time::Duration::from_millis(step_duration_ms));
-
-                    // Check if sound is still in active_sounds (may have been stopped externally)
-                    {
-                        let sounds = match active_sounds.lock() {
-                            Ok(s) => s,
-                            Err(_) => return,
-                        };
-                        if !sounds.contains_key(&url_owned) {
-                            tracing::debug!("Fade aborted for {} - sound no longer active", url_owned);
-                            return;
-                        }
-                    }
-
-                    let progress = step as f32 / steps as f32;
-                    let new_volume = ((1.0 - progress) * initial_volume as f32).max(5.0) / 100.0;
-                    fade_sink.set_volume(new_volume);
-                }
-
-                // Stop the sound after fade completes
                 if let Ok(mut sounds) = active_sounds.lock() {
-                    if sounds.remove(&url_owned).is_some() {
-                        fade_sink.stop();
+                    if let Some(mut active) = sounds.remove(&url_owned) {
+                        active.handle.stop(Tween {
+                            duration: Duration::from_secs(fade_dur as u64),
+                            ..Default::default()
+                        });
                         tracing::info!(
                             "Stopped atmosphere sound after {}s ({}s fade-out): {}",
                             max_dur, fade_dur, url_owned
@@ -341,53 +345,35 @@ fn start_playback_internal(
         (Some(duration), None) => {
             // Only max_duration: hard stop after N seconds
             let active_sounds = Arc::clone(active_sounds);
-            let stop_sink = Arc::clone(&sink);
-            let url_for_max = url_owned.clone();
+            let url_owned = url.to_string();
             std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_secs(duration as u64));
-
+                std::thread::sleep(Duration::from_secs(duration as u64));
                 if let Ok(mut sounds) = active_sounds.lock() {
-                    if sounds.remove(&url_for_max).is_some() {
-                        stop_sink.stop();
-                        tracing::info!("Stopped atmosphere sound after {}s max_duration: {}", duration, url_for_max);
+                    if let Some(mut active) = sounds.remove(&url_owned) {
+                        active.handle.stop(Tween::default());
+                        tracing::info!("Stopped atmosphere sound after {}s max_duration: {}", duration, url_owned);
                     }
                 }
             });
         }
-        (None, Some(duration)) => {
-            // Only fade_duration: fade starts immediately
-            let active_sounds = Arc::clone(active_sounds);
-            let fade_sink = Arc::clone(&sink);
-            let initial_volume = volume;
-            std::thread::spawn(move || {
-                let steps = 20u32;
-                let step_duration_ms = (duration as u64 * 1000) / steps as u64;
-
-                for step in 1..=steps {
-                    std::thread::sleep(std::time::Duration::from_millis(step_duration_ms));
-
-                    {
-                        let sounds = match active_sounds.lock() {
-                            Ok(s) => s,
-                            Err(_) => return,
-                        };
-                        if !sounds.contains_key(&url_owned) {
-                            tracing::debug!("Fade aborted for {} - sound no longer active", url_owned);
-                            return;
-                        }
-                    }
-
-                    let progress = step as f32 / steps as f32;
-                    let new_volume = ((1.0 - progress) * initial_volume as f32).max(5.0) / 100.0;
-                    fade_sink.set_volume(new_volume);
+        (None, Some(fade_dur)) => {
+            // Only fade_duration: fade starts immediately, then clean up after fade completes
+            // Start the fade immediately on the handle we just stored
+            if let Ok(mut sounds) = active_sounds.lock() {
+                if let Some(active) = sounds.get_mut(url) {
+                    active.handle.stop(Tween {
+                        duration: Duration::from_secs(fade_dur as u64),
+                        ..Default::default()
+                    });
                 }
-
-                // Stop the sound after fade completes
+            }
+            // Spawn a cleanup thread to remove from active_sounds after fade completes
+            let active_sounds = Arc::clone(active_sounds);
+            let url_owned = url.to_string();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_secs(fade_dur as u64));
                 if let Ok(mut sounds) = active_sounds.lock() {
-                    if sounds.remove(&url_owned).is_some() {
-                        fade_sink.stop();
-                        tracing::info!("Stopped atmosphere sound after {}s fade-out: {}", duration, url_owned);
-                    }
+                    sounds.remove(&url_owned);
                 }
             });
         }
@@ -425,5 +411,167 @@ mod tests {
 
         let active = engine.get_active_sounds();
         assert!(active.is_empty());
+    }
+
+    #[test]
+    fn test_stop_all_on_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let engine = AtmosphereEngine::new(temp_dir.path());
+
+        // Should not panic when stopping with no active sounds
+        engine.stop_all();
+        assert!(engine.get_active_sounds().is_empty());
+    }
+
+    #[test]
+    fn test_active_sounds_consistency_after_stop() {
+        let temp_dir = TempDir::new().unwrap();
+        let engine = AtmosphereEngine::new(temp_dir.path());
+
+        // Stop all, then check active sounds is still consistent
+        engine.stop_all();
+        let active = engine.get_active_sounds();
+        assert_eq!(active.len(), 0, "Active sounds should be empty after stop_all");
+    }
+
+    #[test]
+    fn test_stop_all_except() {
+        let temp_dir = TempDir::new().unwrap();
+        let engine = AtmosphereEngine::new(temp_dir.path());
+
+        // On empty, stop_all_except should return 0
+        let mut keep = std::collections::HashSet::new();
+        keep.insert("http://test/a".to_string());
+        let stopped = engine.stop_all_except(&keep);
+        assert_eq!(stopped, 0);
+    }
+
+    /// Test that multiple atmosphere sounds survive playback for several seconds
+    /// using kira's internal mixer.
+    ///
+    /// Requires a working audio device — skip in CI.
+    #[test]
+    #[ignore] // Requires audio device — run with: cargo test -- --ignored
+    fn test_multiple_atmosphere_sounds_survive_playback() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().join("freesound.org");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        // Create test WAV files with different frequencies
+        create_test_wav(&cache_dir.join("sound_a.wav"), 440.0, 1.0, 44100);
+        create_test_wav(&cache_dir.join("sound_b.wav"), 550.0, 1.0, 44100);
+        create_test_wav(&cache_dir.join("sound_c.wav"), 660.0, 1.0, 44100);
+
+        let active_sounds: Arc<Mutex<HashMap<String, ActiveSound>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
+        // Start 3 sounds via kira's shared AudioManager
+        start_playback_internal(
+            "http://test/a",
+            &cache_dir.join("sound_a.wav"),
+            70,
+            &active_sounds,
+            None,
+            None,
+        )
+        .unwrap();
+
+        start_playback_internal(
+            "http://test/b",
+            &cache_dir.join("sound_b.wav"),
+            50,
+            &active_sounds,
+            None,
+            None,
+        )
+        .unwrap();
+
+        start_playback_internal(
+            "http://test/c",
+            &cache_dir.join("sound_c.wav"),
+            30,
+            &active_sounds,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // THE CRITICAL CHECK: wait long enough for the old bug to manifest.
+        std::thread::sleep(std::time::Duration::from_secs(2));
+
+        // Verify all 3 are STILL tracked AND their handles are still playing
+        {
+            let sounds = active_sounds.lock().unwrap();
+            assert_eq!(sounds.len(), 3, "Expected 3 active sounds after 2s");
+            for (url, active) in sounds.iter() {
+                assert!(
+                    matches!(active.handle.state(), PlaybackState::Playing),
+                    "Handle for {} should still be Playing, got {:?}",
+                    url,
+                    active.handle.state()
+                );
+            }
+        }
+
+        // Stop one, wait, verify remaining are still alive
+        {
+            let mut sounds = active_sounds.lock().unwrap();
+            if let Some(mut active) = sounds.remove("http://test/b") {
+                active.handle.stop(Tween::default());
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        {
+            let sounds = active_sounds.lock().unwrap();
+            assert_eq!(
+                sounds.len(),
+                2,
+                "Expected 2 active sounds after stopping one"
+            );
+            assert!(!sounds.contains_key("http://test/b"));
+            for (url, active) in sounds.iter() {
+                assert!(
+                    matches!(active.handle.state(), PlaybackState::Playing),
+                    "Handle for {} died after stopping a different sound",
+                    url
+                );
+            }
+        }
+
+        // Stop all remaining
+        {
+            let mut sounds = active_sounds.lock().unwrap();
+            for (_url, mut active) in sounds.drain() {
+                active.handle.stop(Tween::default());
+            }
+        }
+
+        {
+            let sounds = active_sounds.lock().unwrap();
+            assert_eq!(sounds.len(), 0, "Expected 0 active sounds after stop all");
+        }
+    }
+
+    /// Helper: create a WAV file with a sine wave for testing.
+    #[allow(dead_code)]
+    fn create_test_wav(path: &Path, frequency: f32, duration_secs: f32, sample_rate: u32) {
+        use hound;
+
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(path, spec).unwrap();
+        let num_samples = (sample_rate as f32 * duration_secs) as usize;
+        for i in 0..num_samples {
+            let t = i as f32 / sample_rate as f32;
+            let sample = (t * frequency * 2.0 * std::f32::consts::PI).sin();
+            writer
+                .write_sample((sample * i16::MAX as f32) as i16)
+                .unwrap();
+        }
+        writer.finalize().unwrap();
     }
 }

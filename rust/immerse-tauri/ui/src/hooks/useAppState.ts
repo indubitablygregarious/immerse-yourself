@@ -11,6 +11,7 @@ export function useAppState() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<EnvironmentConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStartingEnvironment, setIsStartingEnvironment] = useState(false);
   const [soundCategories, setSoundCategories] = useState<string[]>([]);
 
   // Load initial data and trigger startup environment
@@ -96,6 +97,7 @@ export function useAppState() {
 
   // Start environment
   const startEnvironment = useCallback(async (configName: string) => {
+    setIsStartingEnvironment(true);
     try {
       await invoke('start_environment', { configName });
       // Refresh state
@@ -103,12 +105,15 @@ export function useAppState() {
       setActiveState(state);
     } catch (err) {
       console.error('Failed to start environment:', err);
+    } finally {
+      setIsStartingEnvironment(false);
     }
   }, []);
 
   // Start environment with specific time variant
   const startEnvironmentWithTime = useCallback(async (configName: string, time: string) => {
     console.log('[BACKEND] startEnvironmentWithTime called:', configName, time);
+    setIsStartingEnvironment(true);
     try {
       await invoke('start_environment_with_time', { configName, time });
       console.log('[BACKEND] start_environment_with_time invoke completed');
@@ -118,6 +123,8 @@ export function useAppState() {
       setActiveState(state);
     } catch (err) {
       console.error('Failed to start environment with time:', err);
+    } finally {
+      setIsStartingEnvironment(false);
     }
   }, []);
 
@@ -219,6 +226,7 @@ export function useAppState() {
     searchQuery,
     searchResults,
     isLoading,
+    isStartingEnvironment,
     soundCategories,
 
     // Setters

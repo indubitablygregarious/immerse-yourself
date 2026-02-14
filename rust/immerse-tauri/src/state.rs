@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 /// Thread-safe log buffer for capturing tracing output (visible in iOS debug UI).
@@ -89,9 +90,11 @@ use tokio::sync::Mutex;
 
 /// Thread-safe application state wrapper.
 pub struct AppState {
-    inner: Mutex<AppStateInner>,
+    inner: Arc<Mutex<AppStateInner>>,
     runtime: Runtime,
     log_buffer: LogBuffer,
+    /// Generation counter to invalidate stale environment switches.
+    env_generation: Arc<AtomicU64>,
 }
 
 /// Inner application state (mutable parts).
@@ -135,6 +138,10 @@ struct AppStateInner {
     needs_name_refresh: bool,
     /// Whether sounds (both sound engine and atmosphere) are currently paused.
     sounds_paused: bool,
+    /// URLs started via toggle_loop_sound — survive environment changes.
+    active_loop_urls: HashSet<String>,
+    /// Whether virtual loop configs need regenerating after background downloads complete.
+    needs_loop_regen: bool,
 }
 
 /// Active state snapshot for the frontend.
@@ -213,9 +220,10 @@ impl AppState {
         let runtime = Runtime::new().expect("Failed to create tokio runtime");
         let inner = AppStateInner::new(None, None, None);
         Self {
-            inner: Mutex::new(inner),
+            inner: Arc::new(Mutex::new(inner)),
             runtime,
             log_buffer: Arc::new(std::sync::Mutex::new(VecDeque::new())),
+            env_generation: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -225,9 +233,10 @@ impl AppState {
         let runtime = Runtime::new().expect("Failed to create tokio runtime");
         let inner = AppStateInner::new(resource_dir, None, None);
         Self {
-            inner: Mutex::new(inner),
+            inner: Arc::new(Mutex::new(inner)),
             runtime,
             log_buffer: Arc::new(std::sync::Mutex::new(VecDeque::new())),
+            env_generation: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -244,9 +253,10 @@ impl AppState {
         let runtime = Runtime::new().expect("Failed to create tokio runtime");
         let inner = AppStateInner::new(resource_dir, cache_dir, user_content_dir);
         Self {
-            inner: Mutex::new(inner),
+            inner: Arc::new(Mutex::new(inner)),
             runtime,
             log_buffer,
+            env_generation: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -342,28 +352,109 @@ impl AppState {
     }
 
     /// Starts an environment by name.
-    /// Pre-downloads any uncached atmosphere sounds before switching.
+    /// If atmosphere sounds need downloading, spawns a background task that waits
+    /// for downloads then switches — the UI thread is never blocked and the old
+    /// environment keeps playing until the new one is ready.
     pub fn start_environment(&self, config_name: &str) -> Result<(), String> {
+        // Increment generation — invalidates any pending background switch
+        let gen = self.env_generation.fetch_add(1, Ordering::SeqCst) + 1;
+
         self.runtime.block_on(async {
-            // Phase 1: Find config
-            let config = {
+            // Find config and check download status (brief lock)
+            let (config, needs_download, atmo_engine, urls) = {
                 let inner = self.inner.lock().await;
-                inner
+                let config = inner
                     .configs_by_category
                     .values()
                     .flatten()
                     .find(|c| c.name == config_name)
                     .cloned()
-                    .ok_or_else(|| format!("Config not found: {}", config_name))?
-            };
+                    .ok_or_else(|| format!("Config not found: {}", config_name))?;
 
-            // Phase 2: Pre-download uncached atmosphere sounds (old environment stays running)
-            self.pre_download_atmosphere(&config).await;
+                let (needs, engine, urls) = if let Some(ref atmosphere) = config.engines.atmosphere {
+                    if atmosphere.enabled {
+                        let engine = Arc::clone(&inner.atmosphere_engine);
+                        let uncached: Vec<String> = atmosphere
+                            .mix
+                            .iter()
+                            .filter(|s| !engine.is_url_cached(&s.url))
+                            .map(|s| s.url.clone())
+                            .collect();
+                        if !uncached.is_empty() {
+                            for url in &uncached {
+                                engine.pre_download(url);
+                            }
+                            (true, Some(engine), uncached)
+                        } else {
+                            (false, None, vec![])
+                        }
+                    } else {
+                        (false, None, vec![])
+                    }
+                } else {
+                    (false, None, vec![])
+                };
 
-            // Phase 3: Actually start the environment
-            let mut inner = self.inner.lock().await;
-            inner.start_environment(&config, &self.runtime).await;
-            Ok(())
+                (config, needs, engine, urls)
+            }; // lock released
+
+            if needs_download {
+                // Downloads needed — spawn background task to wait then switch
+                let inner = self.inner.clone();
+                let env_gen = Arc::clone(&self.env_generation);
+                let atmo_engine = atmo_engine.unwrap();
+
+                tokio::spawn(async move {
+                    // Wait for all URLs to be cached
+                    let max_wait = std::time::Duration::from_secs(90);
+                    let start = std::time::Instant::now();
+                    loop {
+                        if start.elapsed() > max_wait {
+                            tracing::warn!(
+                                "Timed out waiting for atmosphere downloads for {}",
+                                config.name
+                            );
+                            break;
+                        }
+                        if env_gen.load(Ordering::SeqCst) != gen {
+                            tracing::info!(
+                                "Environment switch for '{}' superseded, abandoning",
+                                config.name
+                            );
+                            return;
+                        }
+                        if urls.iter().all(|url| atmo_engine.is_url_cached(url)) {
+                            tracing::info!(
+                                "All atmosphere sounds downloaded for {}",
+                                config.name
+                            );
+                            break;
+                        }
+                        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                    }
+
+                    // Check generation again before starting
+                    if env_gen.load(Ordering::SeqCst) != gen {
+                        tracing::info!(
+                            "Environment switch for '{}' superseded after downloads",
+                            config.name
+                        );
+                        return;
+                    }
+
+                    // Now start the environment
+                    let mut guard = inner.lock().await;
+                    guard.needs_loop_regen = true;
+                    guard.start_environment(&config).await;
+                });
+
+                Ok(())
+            } else {
+                // All cached — start immediately
+                let mut inner = self.inner.lock().await;
+                inner.start_environment(&config).await;
+                Ok(())
+            }
         })
     }
 
@@ -388,7 +479,7 @@ impl AppState {
     pub fn stop_lights(&self) -> Result<(), String> {
         self.runtime.block_on(async {
             let mut inner = self.inner.lock().await;
-            inner.stop_lights(&self.runtime).await;
+            inner.stop_lights().await;
             Ok(())
         })
     }
@@ -427,7 +518,7 @@ impl AppState {
     pub fn stop_atmosphere(&self) -> Result<(), String> {
         self.runtime.block_on(async {
             let mut inner = self.inner.lock().await;
-            inner.stop_atmosphere(&self.runtime).await;
+            inner.stop_atmosphere().await;
             Ok(())
         })
     }
@@ -532,6 +623,21 @@ impl AppState {
                 inner.needs_name_refresh = false;
             }
 
+            // Regenerate virtual loop configs once new downloads complete
+            if inner.needs_loop_regen && inner.atmosphere_engine.pending_downloads() == 0 {
+                let cache_dir = inner.cache_dir.clone();
+                AppStateInner::generate_virtual_loop_configs(
+                    &mut inner.configs_by_category,
+                    &cache_dir,
+                );
+                let mut categories: Vec<String> =
+                    inner.configs_by_category.keys().cloned().collect();
+                categories.sort();
+                inner.categories = categories;
+                inner.needs_loop_regen = false;
+                tracing::info!("Regenerated virtual loop configs after downloads completed");
+            }
+
             // Get display names for active atmosphere sounds
             let atmosphere_names: Vec<String> = inner
                 .active_atmosphere_urls
@@ -569,7 +675,7 @@ impl AppState {
     pub fn cleanup(&self) {
         self.runtime.block_on(async {
             let mut inner = self.inner.lock().await;
-            inner.cleanup(&self.runtime).await;
+            inner.cleanup().await;
         });
     }
 
@@ -582,11 +688,13 @@ impl AppState {
     }
 
     /// Starts an environment with a specific time variant.
-    /// Pre-downloads any uncached atmosphere sounds before switching.
+    /// If atmosphere sounds need downloading, spawns a background task that waits
+    /// for downloads then switches — the UI thread is never blocked.
     pub fn start_environment_with_time(&self, config_name: &str, time: &str) -> Result<(), String> {
+        let gen = self.env_generation.fetch_add(1, Ordering::SeqCst) + 1;
+
         self.runtime.block_on(async {
-            // Phase 1: Determine effective config and collect URLs needing download
-            let download_info: Option<(Arc<AtmosphereEngine>, Vec<String>)> = {
+            let (needs_download, atmo_engine, urls, config_name_owned, time_owned) = {
                 let inner = self.inner.lock().await;
                 let base_config = inner
                     .configs_by_category
@@ -596,67 +704,114 @@ impl AppState {
                     .cloned();
 
                 if let Some(base_config) = base_config {
-                    // Use source_path if available, fallback to primary config_dir
+                    // Build effective config for pre-download check
                     let config_path = base_config.source_path.clone().unwrap_or_else(|| {
                         let config_dir = inner.config_loader.config_dir();
-                        let base_filename = format!("{}.yaml", config_name.to_lowercase().replace(' ', "_"));
+                        let base_filename =
+                            format!("{}.yaml", config_name.to_lowercase().replace(' ', "_"));
                         config_dir.join(&base_filename)
                     });
-
-                    // Determine effective config for pre-download
                     let effective_config = if time == "daytime" {
-                        Some(base_config)
+                        base_config
                     } else if has_time_variants_at_path(&config_path) {
-                        if let Some(variant_engines) = get_time_variant_engines_at_path(&config_path, time) {
-                            match serde_yaml::from_value::<immerse_core::config::EnginesConfig>(variant_engines) {
+                        if let Some(variant_engines) =
+                            get_time_variant_engines_at_path(&config_path, time)
+                        {
+                            match serde_yaml::from_value::<immerse_core::config::EnginesConfig>(
+                                variant_engines,
+                            ) {
                                 Ok(engines) => {
                                     let mut variant = base_config.clone();
                                     variant.engines = engines;
-                                    Some(variant)
+                                    variant
                                 }
-                                Err(_) => Some(base_config)
+                                Err(_) => base_config,
                             }
                         } else {
-                            Some(base_config)
+                            base_config
                         }
                     } else {
-                        Some(base_config)
+                        base_config
                     };
 
-                    // Collect URLs that need downloading
-                    if let Some(ref cfg) = effective_config {
-                        if let Some(ref atmosphere) = cfg.engines.atmosphere {
-                            if atmosphere.enabled {
-                                let atmo_engine = Arc::clone(&inner.atmosphere_engine);
-                                let urls: Vec<String> = atmosphere.mix.iter()
-                                    .filter(|s| !atmo_engine.is_url_cached(&s.url))
-                                    .map(|s| s.url.clone())
-                                    .collect();
-                                if !urls.is_empty() {
-                                    for url in &urls {
-                                        atmo_engine.pre_download(url);
-                                    }
-                                    Some((atmo_engine, urls))
-                                } else {
-                                    None
+                    // Check and kick off downloads
+                    if let Some(ref atmosphere) = effective_config.engines.atmosphere {
+                        if atmosphere.enabled {
+                            let engine = Arc::clone(&inner.atmosphere_engine);
+                            let uncached: Vec<String> = atmosphere
+                                .mix
+                                .iter()
+                                .filter(|s| !engine.is_url_cached(&s.url))
+                                .map(|s| s.url.clone())
+                                .collect();
+                            if !uncached.is_empty() {
+                                for url in &uncached {
+                                    engine.pre_download(url);
                                 }
-                            } else { None }
-                        } else { None }
-                    } else { None }
-                } else { None }
-            }; // inner lock released here
+                                (
+                                    true,
+                                    Some(engine),
+                                    uncached,
+                                    config_name.to_string(),
+                                    time.to_string(),
+                                )
+                            } else {
+                                (false, None, vec![], config_name.to_string(), time.to_string())
+                            }
+                        } else {
+                            (false, None, vec![], config_name.to_string(), time.to_string())
+                        }
+                    } else {
+                        (false, None, vec![], config_name.to_string(), time.to_string())
+                    }
+                } else {
+                    (false, None, vec![], config_name.to_string(), time.to_string())
+                }
+            }; // lock released
 
-            // Phase 2: Wait for downloads if needed (lock is released)
-            if let Some((atmo_engine, urls)) = download_info {
-                tracing::info!("Pre-downloading atmosphere sounds for {} ({})...", config_name, time);
-                Self::wait_for_urls_cached(&atmo_engine, &urls).await;
+            if needs_download {
+                let inner = self.inner.clone();
+                let env_gen = Arc::clone(&self.env_generation);
+                let atmo_engine = atmo_engine.unwrap();
+
+                tokio::spawn(async move {
+                    let max_wait = std::time::Duration::from_secs(90);
+                    let start = std::time::Instant::now();
+                    loop {
+                        if start.elapsed() > max_wait {
+                            tracing::warn!(
+                                "Timed out waiting for downloads for {} ({})",
+                                config_name_owned,
+                                time_owned
+                            );
+                            break;
+                        }
+                        if env_gen.load(Ordering::SeqCst) != gen {
+                            tracing::info!("Environment switch superseded, abandoning");
+                            return;
+                        }
+                        if urls.iter().all(|url| atmo_engine.is_url_cached(url)) {
+                            break;
+                        }
+                        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                    }
+
+                    if env_gen.load(Ordering::SeqCst) != gen {
+                        return;
+                    }
+
+                    let mut guard = inner.lock().await;
+                    guard.needs_loop_regen = true;
+                    let _ = guard
+                        .start_environment_with_time(&config_name_owned, &time_owned)
+                        .await;
+                });
+
+                Ok(())
+            } else {
+                let mut inner = self.inner.lock().await;
+                inner.start_environment_with_time(config_name, time).await
             }
-
-            // Phase 3: Actually start the environment with time variant
-            let mut inner = self.inner.lock().await;
-            inner
-                .start_environment_with_time(config_name, time, &self.runtime)
-                .await
         })
     }
 
@@ -682,60 +837,8 @@ impl AppState {
     pub fn trigger_startup_environment(&self) -> Option<String> {
         self.runtime.block_on(async {
             let mut inner = self.inner.lock().await;
-            inner.trigger_startup_environment(&self.runtime).await
+            inner.trigger_startup_environment().await
         })
-    }
-
-    // ========================================================================
-    // Pre-download Helpers
-    // ========================================================================
-
-    /// Pre-downloads any uncached atmosphere sounds for a config.
-    /// Releases the inner lock while waiting so other operations (like get_active_state) can proceed.
-    async fn pre_download_atmosphere(&self, config: &EnvironmentConfig) {
-        if let Some(ref atmosphere) = config.engines.atmosphere {
-            if atmosphere.enabled && !atmosphere.mix.is_empty() {
-                let urls: Vec<String> = atmosphere.mix.iter().map(|s| s.url.clone()).collect();
-
-                // Check which URLs need downloading (acquire lock briefly)
-                let (atmo_engine, needs_download) = {
-                    let inner = self.inner.lock().await;
-                    let engine = Arc::clone(&inner.atmosphere_engine);
-                    let mut needs = false;
-                    for url in &urls {
-                        if !engine.is_url_cached(url) {
-                            engine.pre_download(url);
-                            needs = true;
-                        }
-                    }
-                    (engine, needs)
-                };
-
-                if needs_download {
-                    tracing::info!("Pre-downloading atmosphere sounds for {}...", config.name);
-                    Self::wait_for_urls_cached(&atmo_engine, &urls).await;
-                }
-            }
-        }
-    }
-
-    /// Waits for all specified URLs to be cached, with a timeout.
-    async fn wait_for_urls_cached(atmo_engine: &AtmosphereEngine, urls: &[String]) {
-        let max_wait = std::time::Duration::from_secs(60);
-        let start = std::time::Instant::now();
-
-        loop {
-            if start.elapsed() > max_wait {
-                tracing::warn!("Timed out waiting for atmosphere downloads");
-                break;
-            }
-            let all_cached = urls.iter().all(|url| atmo_engine.is_url_cached(url));
-            if all_cached {
-                tracing::info!("All atmosphere sounds downloaded");
-                break;
-            }
-            tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-        }
     }
 
     // ========================================================================
@@ -914,6 +1017,8 @@ impl AppStateInner {
             lights_disabled_this_session: false,
             needs_name_refresh: true,
             sounds_paused: false,
+            active_loop_urls: HashSet::new(),
+            needs_loop_regen: false,
         }
     }
 
@@ -1360,7 +1465,7 @@ Content is loaded alongside built-in configs.
     }
 
     /// Starts an environment.
-    async fn start_environment(&mut self, config: &EnvironmentConfig, runtime: &Runtime) {
+    async fn start_environment(&mut self, config: &EnvironmentConfig) {
         tracing::info!("Starting environment: {} (category: {})", config.name, config.category);
 
         // Check if this is a sound-only config (one-shot sound effect)
@@ -1392,14 +1497,17 @@ Content is loaded alongside built-in configs.
             return;
         }
 
-        // Full environment: stop existing atmosphere when starting
-        // This ensures we don't have sounds from the previous environment continuing
-        // AND increments the generation counter to invalidate pending download callbacks
+        // Full environment: stop existing atmosphere EXCEPT user-toggled loop sounds.
+        // This preserves loop sounds the user explicitly started via toggle_loop_sound,
+        // while clearing environment-specific atmosphere sounds.
         let old_atmosphere_count = self.active_atmosphere_urls.len();
-        tracing::info!("Stopping atmosphere (had {} tracked sounds)", old_atmosphere_count);
-        self.atmosphere_engine.stop_all();
-        self.active_atmosphere_urls.clear();
-        self.atmosphere_volumes.clear();
+        tracing::info!(
+            "Stopping atmosphere (had {} tracked sounds, preserving {} loop sounds)",
+            old_atmosphere_count, self.active_loop_urls.len()
+        );
+        self.atmosphere_engine.stop_all_except(&self.active_loop_urls);
+        self.active_atmosphere_urls.retain(|url| self.active_loop_urls.contains(url));
+        self.atmosphere_volumes.retain(|url, _| self.active_loop_urls.contains(url));
 
         // Reset pause state - new environment starts fresh
         self.sounds_paused = false;
@@ -1426,7 +1534,7 @@ Content is loaded alongside built-in configs.
             if let Some(ref engine) = self.spotify_engine {
                 let engine = Arc::clone(engine);
                 let uri = spotify.context_uri.clone();
-                runtime.spawn(async move {
+                tokio::spawn(async move {
                     let engine = engine.lock().await;
                     // Ensure we're authenticated before playing
                     if let Err(e) = engine.authenticate().await {
@@ -1442,7 +1550,7 @@ Content is loaded alongside built-in configs.
             // New environment has no Spotify - pause current playback
             if let Some(ref engine) = self.spotify_engine {
                 let engine = Arc::clone(engine);
-                runtime.spawn(async move {
+                tokio::spawn(async move {
                     let engine = engine.lock().await;
                     // Authenticate first in case token needs refresh
                     if let Err(e) = engine.authenticate().await {
@@ -1500,7 +1608,7 @@ Content is loaded alongside built-in configs.
                     if let Some(ref engine) = self.lights_engine {
                         let engine = Arc::clone(engine);
                         let anim_config = anim_config.clone();
-                        runtime.spawn(async move {
+                        tokio::spawn(async move {
                             let mut engine = engine.lock().await;
                             if let Err(e) = engine.start(anim_config).await {
                                 tracing::warn!("Failed to start lights: {}", e);
@@ -1522,10 +1630,10 @@ Content is loaded alongside built-in configs.
     }
 
     /// Stops all lights.
-    async fn stop_lights(&mut self, runtime: &Runtime) {
+    async fn stop_lights(&mut self) {
         if let Some(ref engine) = self.lights_engine {
             let engine = Arc::clone(engine);
-            runtime.spawn(async move {
+            tokio::spawn(async move {
                 let mut engine = engine.lock().await;
                 if let Err(e) = engine.stop().await {
                     tracing::warn!("Failed to stop lights: {}", e);
@@ -1540,11 +1648,12 @@ Content is loaded alongside built-in configs.
     }
 
     /// Stops atmosphere and Spotify.
-    async fn stop_atmosphere(&mut self, _runtime: &Runtime) {
-        // Stop atmosphere sounds
+    async fn stop_atmosphere(&mut self) {
+        // Stop ALL atmosphere sounds including user-toggled loops
         self.atmosphere_engine.stop_all();
         self.active_atmosphere_urls.clear();
         self.atmosphere_volumes.clear();
+        self.active_loop_urls.clear();
 
         // Pause Spotify - await directly instead of spawning
         if let Some(ref engine) = self.spotify_engine {
@@ -1577,6 +1686,7 @@ Content is loaded alongside built-in configs.
             }
             self.active_atmosphere_urls.remove(url);
             self.atmosphere_volumes.remove(url);
+            self.active_loop_urls.remove(url);
             tracing::info!("Stopped loop sound: {}", url);
             Ok(false)
         } else {
@@ -1587,6 +1697,7 @@ Content is loaded alongside built-in configs.
             }
             self.active_atmosphere_urls.insert(url.to_string());
             self.atmosphere_volumes.insert(url.to_string(), volume);
+            self.active_loop_urls.insert(url.to_string());
             tracing::info!("Started loop sound: {}", url);
             Ok(true)
         }
@@ -1686,7 +1797,7 @@ Content is loaded alongside built-in configs.
     }
 
     /// Cleans up on exit.
-    async fn cleanup(&mut self, _runtime: &Runtime) {
+    async fn cleanup(&mut self) {
         tracing::info!("Cleaning up...");
 
         // Stop all sounds
@@ -1760,7 +1871,6 @@ Content is loaded alongside built-in configs.
         &mut self,
         config_name: &str,
         time: &str,
-        runtime: &Runtime,
     ) -> Result<(), String> {
         tracing::info!("start_environment_with_time called: config_name='{}', time='{}'", config_name, time);
 
@@ -1799,7 +1909,7 @@ Content is loaded alongside built-in configs.
         // If time is "daytime", use base config directly (no variant overrides)
         if time == "daytime" {
             tracing::info!("Starting environment: {} (daytime/base)", config_name);
-            self.start_environment(&base_config, runtime).await;
+            self.start_environment(&base_config).await;
             return Ok(());
         }
 
@@ -1825,7 +1935,7 @@ Content is loaded alongside built-in configs.
                             variant_config.engines.atmosphere.as_ref().map_or(false, |a| a.enabled),
                             variant_config.engines.lights.as_ref().map_or(false, |l| l.enabled)
                         );
-                        self.start_environment(&variant_config, runtime).await;
+                        self.start_environment(&variant_config).await;
                         return Ok(());
                     }
                     Err(e) => {
@@ -1849,7 +1959,7 @@ Content is loaded alongside built-in configs.
             config_name,
             time
         );
-        self.start_environment(&base_config, runtime).await;
+        self.start_environment(&base_config).await;
         Ok(())
     }
 
@@ -1918,7 +2028,7 @@ Content is loaded alongside built-in configs.
     /// Finds and triggers the startup environment.
     /// Looks for a config named "Startup" (case-insensitive), falling back to "Travel".
     /// Returns the name of the environment that was started, or None if not found.
-    async fn trigger_startup_environment(&mut self, runtime: &Runtime) -> Option<String> {
+    async fn trigger_startup_environment(&mut self) -> Option<String> {
         // Search all categories (including hidden) for startup config
         let mut startup_config: Option<EnvironmentConfig> = None;
         let mut travel_config: Option<EnvironmentConfig> = None;
@@ -1943,7 +2053,7 @@ Content is loaded alongside built-in configs.
 
         if let Some(ref cfg) = config {
             tracing::info!("Triggering startup environment: {}", cfg.name);
-            self.start_environment(cfg, runtime).await;
+            self.start_environment(cfg).await;
             Some(cfg.name.clone())
         } else {
             tracing::info!("No startup environment found");

@@ -285,7 +285,20 @@ pub fn download_sound(url: &str, cache_dir: &Path) -> Result<PathBuf, String> {
         .unwrap_or_else(|| format!("sound_{}", sound_id));
     let audio_url = extract_audio_url_from_html(&html, url)?;
 
-    let output_path = cache_dir.join(format!("{}_{}_{}.mp3", creator, sound_id, sound_name));
+    // Extract the real file extension from the audio URL (e.g., .wav, .flac, .ogg)
+    // instead of hardcoding .mp3 — symphonia uses extension as a codec hint.
+    let extension = audio_url
+        .rsplit('/')
+        .next()
+        .and_then(|filename| filename.split('?').next())
+        .and_then(|clean| clean.rsplit('.').next())
+        .and_then(|ext| match ext.to_lowercase().as_str() {
+            "mp3" | "wav" | "flac" | "ogg" | "opus" => Some(ext.to_lowercase()),
+            _ => None,
+        })
+        .unwrap_or_else(|| "mp3".to_string());
+
+    let output_path = cache_dir.join(format!("{}_{}_{}.{}", creator, sound_id, sound_name, extension));
 
     // Download audio file
     let bytes = client.get(&audio_url).send()

@@ -37,6 +37,7 @@ function AppContent() {
     searchQuery,
     searchResults,
     isLoading,
+    isStartingEnvironment,
     soundCategories,
     setCurrentCategory,
     handleSearch,
@@ -509,6 +510,10 @@ function AppContent() {
       </footer>
 
       <StatusBar activeState={activeState} />
+
+      {isStartingEnvironment && (
+        <div className="loading-toast">Loading environment...</div>
+      )}
 
       {timeDialogOpen && pendingTimes && (
         <TimeVariantDialog

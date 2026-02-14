@@ -292,10 +292,18 @@ fn start_playback_internal(
     max_duration: Option<u32>,
 ) -> Result<()> {
     // Load and configure sound — loop over entire file
-    let sound_data = StaticSoundData::from_file(file_path)
-        .map_err(|e| {
-            Error::AtmospherePlayback(format!("Failed to load {}: {}", file_path.display(), e))
-        })?
+    let sound_data = match StaticSoundData::from_file(file_path) {
+        Ok(data) => data,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to decode {}, skipping: {}",
+                file_path.display(),
+                e
+            );
+            return Ok(());
+        }
+    };
+    let sound_data = sound_data
         .loop_region(..)
         .volume(volume_to_db(volume));
 

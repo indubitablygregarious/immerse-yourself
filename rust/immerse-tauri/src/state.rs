@@ -142,6 +142,9 @@ struct AppStateInner {
     active_loop_urls: HashSet<String>,
     /// Whether virtual loop configs need regenerating after background downloads complete.
     needs_loop_regen: bool,
+    /// Incremented whenever categories/configs change (e.g., after loop regen, cache clear, reload).
+    /// Frontend watches this to know when to re-fetch categories and configs.
+    config_version: u64,
 }
 
 /// Active state snapshot for the frontend.
@@ -168,6 +171,8 @@ pub struct ActiveState {
     pub available_times: Vec<String>,
     /// Whether sounds are currently paused (both sound engine and atmosphere).
     pub is_sounds_paused: bool,
+    /// Incremented when categories/configs change. Frontend watches this to refresh.
+    pub config_version: u64,
 }
 
 /// Available time variants for a config.
@@ -556,8 +561,9 @@ impl AppState {
             inner.categories = categories;
             inner.needs_name_refresh = true;
             inner.active_lights_config = None;
+            inner.config_version += 1;
 
-            tracing::info!("Cleared freesound cache: {} files deleted, configs reloaded", count);
+            tracing::info!("Cleared freesound cache: {} files deleted, configs reloaded (config_version={})", count, inner.config_version);
             Ok(count)
         })
     }
@@ -584,8 +590,10 @@ impl AppState {
             // Mark names for refresh
             inner.needs_name_refresh = true;
 
+            inner.config_version += 1;
+
             let total: usize = inner.configs_by_category.values().map(|v| v.len()).sum();
-            tracing::info!("Reloaded configs: {} total across {} categories", total, inner.configs_by_category.len());
+            tracing::info!("Reloaded configs: {} total across {} categories (config_version={})", total, inner.configs_by_category.len(), inner.config_version);
             Ok(total)
         })
     }
@@ -635,7 +643,8 @@ impl AppState {
                 categories.sort();
                 inner.categories = categories;
                 inner.needs_loop_regen = false;
-                tracing::info!("Regenerated virtual loop configs after downloads completed");
+                inner.config_version += 1;
+                tracing::info!("Regenerated virtual loop configs after downloads completed (config_version={})", inner.config_version);
             }
 
             // Get display names for active atmosphere sounds
@@ -667,6 +676,7 @@ impl AppState {
                 pending_downloads: inner.atmosphere_engine.pending_downloads(),
                 available_times,
                 is_sounds_paused: inner.sounds_paused,
+                config_version: inner.config_version,
             }
         })
     }
@@ -833,12 +843,37 @@ impl AppState {
 
     /// Triggers the startup environment if one exists.
     /// Looks for a config named "Startup" (case-insensitive), falling back to "Travel".
+    /// Routes through the outer `start_environment()` so download-wait-switch logic applies.
     /// Returns the name of the environment that was started, or None if no startup config found.
     pub fn trigger_startup_environment(&self) -> Option<String> {
-        self.runtime.block_on(async {
-            let mut inner = self.inner.lock().await;
-            inner.trigger_startup_environment().await
-        })
+        // Find startup config name under a brief lock
+        let config_name = self.runtime.block_on(async {
+            let inner = self.inner.lock().await;
+            let mut startup_name: Option<String> = None;
+            let mut travel_name: Option<String> = None;
+            for configs in inner.configs_by_category.values() {
+                for config in configs {
+                    let name_lower = config.name.to_lowercase();
+                    if name_lower == "startup" {
+                        startup_name = Some(config.name.clone());
+                        break;
+                    } else if name_lower == "travel" && travel_name.is_none() {
+                        travel_name = Some(config.name.clone());
+                    }
+                }
+                if startup_name.is_some() {
+                    break;
+                }
+            }
+            startup_name.or(travel_name)
+        });
+
+        if let Some(ref name) = config_name {
+            tracing::info!("Triggering startup environment: {}", name);
+            // Use the outer start_environment which handles download-wait-switch
+            let _ = self.start_environment(name);
+        }
+        config_name
     }
 
     // ========================================================================
@@ -1019,6 +1054,7 @@ impl AppStateInner {
             sounds_paused: false,
             active_loop_urls: HashSet::new(),
             needs_loop_regen: false,
+            config_version: 0,
         }
     }
 
@@ -2025,41 +2061,6 @@ Content is loaded alongside built-in configs.
         Ok(())
     }
 
-    /// Finds and triggers the startup environment.
-    /// Looks for a config named "Startup" (case-insensitive), falling back to "Travel".
-    /// Returns the name of the environment that was started, or None if not found.
-    async fn trigger_startup_environment(&mut self) -> Option<String> {
-        // Search all categories (including hidden) for startup config
-        let mut startup_config: Option<EnvironmentConfig> = None;
-        let mut travel_config: Option<EnvironmentConfig> = None;
-
-        for configs in self.configs_by_category.values() {
-            for config in configs {
-                let name_lower = config.name.to_lowercase();
-                if name_lower == "startup" {
-                    startup_config = Some(config.clone());
-                    break;
-                } else if name_lower == "travel" && travel_config.is_none() {
-                    travel_config = Some(config.clone());
-                }
-            }
-            if startup_config.is_some() {
-                break;
-            }
-        }
-
-        // Use startup config if found, otherwise fall back to travel
-        let config = startup_config.or(travel_config);
-
-        if let Some(ref cfg) = config {
-            tracing::info!("Triggering startup environment: {}", cfg.name);
-            self.start_environment(cfg).await;
-            Some(cfg.name.clone())
-        } else {
-            tracing::info!("No startup environment found");
-            None
-        }
-    }
 
     /// Gets a clean display name for an atmosphere sound URL.
     /// Extracts the name from the cached filename and cleans it up:

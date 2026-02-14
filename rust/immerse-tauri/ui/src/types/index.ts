@@ -129,6 +129,8 @@ export interface ActiveState {
   available_times: string[];
   /** Whether sounds are currently paused (both sound engine and atmosphere). */
   is_sounds_paused: boolean;
+  /** Incremented when categories/configs change. Watch this to refresh. */
+  config_version: number;
 }
 
 export interface AvailableTimes {

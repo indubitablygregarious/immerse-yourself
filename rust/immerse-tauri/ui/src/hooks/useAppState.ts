@@ -58,6 +58,26 @@ export function useAppState() {
     loadInitialData();
   }, []);
 
+  // Re-fetch categories and configs when backend reports changes (e.g., after downloads)
+  useEffect(() => {
+    if (!activeState?.config_version) return;
+    async function refreshConfigs() {
+      try {
+        const [cats, configs, soundCats] = await Promise.all([
+          invoke<string[]>('get_categories'),
+          invoke<Record<string, EnvironmentConfig[]>>('get_all_configs'),
+          invoke<string[]>('get_sound_categories'),
+        ]);
+        setCategories(cats);
+        setAllConfigs(configs);
+        setSoundCategories(soundCats);
+      } catch (err) {
+        console.error('Failed to refresh configs:', err);
+      }
+    }
+    refreshConfigs();
+  }, [activeState?.config_version]);
+
   // Load environments when category changes
   useEffect(() => {
     if (currentCategory && allConfigs[currentCategory]) {

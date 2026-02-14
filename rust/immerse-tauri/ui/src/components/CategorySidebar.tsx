@@ -209,7 +209,11 @@ export const CategorySidebar: FC<CategorySidebarProps> = ({
   const renderCategory = (category: string) => {
     const meta = categoryMeta[category] || { name: category, icon: '📁' };
     const hasActiveLights = activeLightsInfo?.category === category;
-    const atmosphereInfo = getActiveAtmosphereInfo(category, activeState, allConfigs);
+    // Only show atmosphere badges on sound categories — environment categories
+    // contain full environments whose atmosphere.mix URLs shouldn't badge the sidebar
+    const atmosphereInfo = soundCategories.includes(category)
+      ? getActiveAtmosphereInfo(category, activeState, allConfigs)
+      : { count: 0, configNames: [] as string[] };
 
     const handleLightsBadgeClick = (e: MouseEvent) => {
       e.stopPropagation();

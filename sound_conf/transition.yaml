@@ -3,6 +3,9 @@
 name: "Scene Transition"
 description: "Various whoosh, swoosh, and magical transition sounds for scene changes"
 
+metadata:
+  tags: [transition, whoosh, magic, cinematic]
+
 sounds:
   # Original whoosh (the default transition sound)
   - url: "https://freesound.org/people/DJT4NN3R/sounds/449994/"

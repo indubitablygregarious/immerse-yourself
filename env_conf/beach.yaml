@@ -10,6 +10,12 @@ metadata:
   - waves
   - coastal
   - seagulls
+  - outdoor
+  - wilderness
+  - peaceful
+  - rest
+  - water
+  - nature
   intensity: low
   suitable_for: &id001
   - relaxation

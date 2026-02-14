@@ -3,6 +3,9 @@
 name: "Squeaky Door"
 description: "Various door creaking and squeaking sounds"
 
+metadata:
+  tags: [door, creak, indoor, medieval]
+
 sounds:
   # Original door sound from sounds/ directory
   - file: "sounds/dooropen.wav"

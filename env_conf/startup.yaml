@@ -4,7 +4,7 @@ description: "Default startup environment - tavern lights with travel music"
 icon: "🏠"
 
 metadata:
-  tags: ["startup", "default"]
+  tags: ["startup", "default", "outdoor", "wilderness", "peaceful", "nature"]
   intensity: "low"
   suitable_for: ["startup", "default"]
 

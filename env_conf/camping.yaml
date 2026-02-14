@@ -8,6 +8,9 @@ metadata:
   - campfire
   - outdoor
   - peaceful
+  - wilderness
+  - rest
+  - nature
   intensity: low
   suitable_for: &id001
   - rest scenes

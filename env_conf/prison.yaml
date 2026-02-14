@@ -9,6 +9,10 @@ metadata:
   - jail
   - dungeon
   - captivity
+  - medieval
+  - dangerous
+  - tense
+  - eerie
   intensity: medium
   suitable_for: &id001
   - prison scenes

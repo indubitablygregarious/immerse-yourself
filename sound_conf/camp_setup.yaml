@@ -3,6 +3,9 @@
 name: "Camp Setup"
 description: "Various digging, shoveling, and camp setup sounds"
 
+metadata:
+  tags: [camp, outdoor, setup, digging]
+
 sounds:
   # Original dig sound from sounds/ directory
   - file: "sounds/dig.wav"

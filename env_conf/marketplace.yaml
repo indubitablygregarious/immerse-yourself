@@ -10,6 +10,8 @@ metadata:
   - crowd
   - shopping
   - busy
+  - medieval
+  - rural
   intensity: medium
   suitable_for: &id001
   - shopping

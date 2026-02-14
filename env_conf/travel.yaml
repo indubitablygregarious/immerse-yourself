@@ -9,6 +9,8 @@ metadata:
   - overland
   - journey
   - wilderness
+  - outdoor
+  - nature
   intensity: medium
   suitable_for: &id001
   - overworld travel

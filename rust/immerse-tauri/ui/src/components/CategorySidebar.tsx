@@ -22,19 +22,39 @@ interface OffScreenSoundsInfo {
   firstCategory: string | null;
 }
 
-// Category display names and icons
+// Category display names and icons.
+// Env categories use capitalized keys when they emerge (e.g., "Tavern").
+// Sound categories use lowercase keys from the backend.
 const categoryMeta: Record<string, { name: string; icon: string }> = {
-  combat: { name: 'Combat', icon: '⚔️' },
-  dungeon: { name: 'Dungeon', icon: '🏰' },
+  // Catch-all for environments below the emergence threshold
+  Environments: { name: 'Environments', icon: '🌍' },
+  // Emerged environment categories (capitalized)
+  Combat: { name: 'Combat', icon: '⚔️' },
+  Tavern: { name: 'Tavern', icon: '🍺' },
+  Town: { name: 'Town', icon: '🏘️' },
+  Forest: { name: 'Forest', icon: '🌳' },
+  Coastal: { name: 'Coastal', icon: '🏖️' },
+  Interiors: { name: 'Interiors', icon: '🏠' },
+  Travel: { name: 'Travel', icon: '🧭' },
+  Dungeon: { name: 'Dungeon', icon: '🏰' },
+  Spooky: { name: 'Spooky', icon: '👻' },
+  Relaxation: { name: 'Relaxation', icon: '🧘' },
+  Celestial: { name: 'Celestial', icon: '✨' },
+  // Sound categories (lowercase from backend)
   nature: { name: 'Nature', icon: '🌲' },
-  town: { name: 'Town', icon: '🏘️' },
   water: { name: 'Water', icon: '🌊' },
-  celestial: { name: 'Celestial', icon: '✨' },
-  spooky: { name: 'Spooky', icon: '👻' },
-  relaxation: { name: 'Relaxation', icon: '🧘' },
-  travel: { name: 'Travel', icon: '🧭' },
-  weather: { name: 'Weather', icon: '⛈️' },
-  special: { name: 'Special', icon: '🎭' },
+  fire: { name: 'Fire', icon: '🔥' },
+  wind: { name: 'Wind', icon: '💨' },
+  storm: { name: 'Storm', icon: '⛈️' },
+  crowd: { name: 'Crowd', icon: '👥' },
+  footsteps: { name: 'Footsteps', icon: '👣' },
+  reactions: { name: 'Reactions', icon: '😲' },
+  combat_sfx: { name: 'Combat SFX', icon: '⚔️' },
+  ambient: { name: 'Ambient', icon: '🎵' },
+  creatures: { name: 'Creatures', icon: '🐉' },
+  misc: { name: 'Misc', icon: '📦' },
+  freesound: { name: 'Freesound', icon: '🔊' },
+  sounds: { name: 'Sounds', icon: '🔊' },
 };
 
 // Helper to check if a category has active lights and return the config name + icon

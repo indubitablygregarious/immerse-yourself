@@ -9,6 +9,9 @@ metadata:
   - shore
   - waves
   - seabirds
+  - wilderness
+  - peaceful
+  - nature
   intensity: medium
   suitable_for: &id001
   - coastal scenes

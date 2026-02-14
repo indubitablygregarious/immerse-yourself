@@ -9,6 +9,11 @@ metadata:
   - graveyard
   - horror
   - undead
+  - outdoor
+  - medieval
+  - dangerous
+  - eerie
+  - tense
   intensity: medium
   suitable_for: &id001
   - horror scenes

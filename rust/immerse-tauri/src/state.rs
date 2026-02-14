@@ -8,15 +8,16 @@ use std::sync::Arc;
 /// Thread-safe log buffer for capturing tracing output (visible in iOS debug UI).
 pub type LogBuffer = Arc<std::sync::Mutex<VecDeque<String>>>;
 
-/// Environment categories - shown BEFORE the "── SOUNDS ──" separator.
-/// These contain full environments with lights, spotify, atmosphere, etc.
-const ENVIRONMENT_CATEGORIES: &[&str] = &[
-    "tavern", "town", "interiors", "travel", "forest", "coastal",
-    "dungeon", "combat", "spooky", "relaxation", "celestial",
-];
+/// Minimum number of environment configs a category needs to appear as its own
+/// sidebar entry. Categories below this threshold merge into the catch-all
+/// "Environments" category. Sound categories are not affected by this threshold.
+const CATEGORY_EMERGENCE_THRESHOLD: usize = 4;
+
+/// Display name for the catch-all environment category (merges underpopulated categories).
+const CATCHALL_ENVIRONMENTS: &str = "Environments";
 
 /// Sound categories - shown AFTER the "── SOUNDS ──" separator.
-/// These contain sound effects and loop sounds.
+/// These contain sound effects and loop sounds. Always shown regardless of count.
 const SOUND_CATEGORIES: &[&str] = &[
     "nature", "water", "fire", "wind", "storm", "crowd",
     "footsteps", "reactions", "combat_sfx", "ambient", "creatures",
@@ -294,65 +295,90 @@ impl AppState {
         })
     }
 
-    /// Gets environments for a specific category.
-    /// For environment categories, filters out all sound effects (both loop and one-shot).
-    /// For sound categories, only returns sound effects (both loop and one-shot).
+    /// Gets environments for a specific category (display name).
+    /// For environment display categories (including "Environments" catch-all),
+    /// resolves to original categories and returns env-type configs.
+    /// For sound categories, returns sound-type configs.
     pub fn get_environments(&self, category: &str) -> Vec<EnvironmentConfig> {
         self.runtime.block_on(async {
             let inner = self.inner.lock().await;
-            let is_sound_cat = inner.is_sound_category(category);
 
-            inner
-                .configs_by_category
-                .get(category)
-                .map(|configs| {
-                    configs
-                        .iter()
-                        .filter(|c| {
-                            if is_sound_cat {
-                                // Sound category: show all sound effects (loop or one-shot)
-                                c.is_sound_effect() || c.is_loop_sound()
-                            } else {
-                                // Environment category: exclude all sound effects
-                                !c.is_sound_effect() && !c.is_loop_sound()
+            if inner.is_sound_category(category) {
+                // Sound category: direct lookup, show sound-type configs
+                inner
+                    .configs_by_category
+                    .get(category)
+                    .map(|configs| {
+                        configs
+                            .iter()
+                            .filter(|c| c.is_sound_effect() || c.is_loop_sound())
+                            .cloned()
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                // Environment display category: resolve via display map
+                let (_, display_map) = inner.get_env_display_map();
+                let orig_cats = display_map.get(category).cloned().unwrap_or_default();
+                let mut results: Vec<EnvironmentConfig> = Vec::new();
+                for orig_cat in &orig_cats {
+                    if let Some(configs) = inner.configs_by_category.get(orig_cat) {
+                        for c in configs {
+                            if !c.is_sound_effect() && !c.is_loop_sound() {
+                                results.push(c.clone());
                             }
-                        })
-                        .cloned()
-                        .collect()
-                })
-                .unwrap_or_default()
+                        }
+                    }
+                }
+                results.sort_by(|a, b| a.name.cmp(&b.name));
+                results
+            }
         })
     }
 
-    /// Gets all configs across all categories.
-    /// For environment categories, filters out all sound effects (both loop and one-shot).
-    /// For sound categories, only returns sound effects (both loop and one-shot).
+    /// Gets all configs across all display categories.
+    /// Environment categories use display names (with threshold-based merging).
+    /// Sound categories use original names (always shown).
     pub fn get_all_configs(&self) -> HashMap<String, Vec<EnvironmentConfig>> {
         self.runtime.block_on(async {
             let inner = self.inner.lock().await;
+            let (env_display_order, env_display_map) = inner.get_env_display_map();
+            let mut result: HashMap<String, Vec<EnvironmentConfig>> = HashMap::new();
 
-            inner
-                .configs_by_category
-                .iter()
-                .map(|(category, configs)| {
-                    let is_sound_cat = inner.is_sound_category(category);
+            // Environment display categories
+            for display_name in &env_display_order {
+                let orig_cats = env_display_map.get(display_name).cloned().unwrap_or_default();
+                let mut configs: Vec<EnvironmentConfig> = Vec::new();
+                for orig_cat in &orig_cats {
+                    if let Some(cat_configs) = inner.configs_by_category.get(orig_cat) {
+                        for c in cat_configs {
+                            if !c.is_sound_effect() && !c.is_loop_sound() {
+                                configs.push(c.clone());
+                            }
+                        }
+                    }
+                }
+                configs.sort_by(|a, b| a.name.cmp(&b.name));
+                if !configs.is_empty() {
+                    result.insert(display_name.clone(), configs);
+                }
+            }
+
+            // Sound categories (direct, no merging)
+            for cat in SOUND_CATEGORIES {
+                if let Some(configs) = inner.configs_by_category.get(*cat) {
                     let filtered: Vec<EnvironmentConfig> = configs
                         .iter()
-                        .filter(|c| {
-                            if is_sound_cat {
-                                // Sound category: show all sound effects (loop or one-shot)
-                                c.is_sound_effect() || c.is_loop_sound()
-                            } else {
-                                // Environment category: exclude all sound effects
-                                !c.is_sound_effect() && !c.is_loop_sound()
-                            }
-                        })
+                        .filter(|c| c.is_sound_effect() || c.is_loop_sound())
                         .cloned()
                         .collect();
-                    (category.clone(), filtered)
-                })
-                .filter(|(_, configs)| !configs.is_empty())
-                .collect()
+                    if !filtered.is_empty() {
+                        result.insert(cat.to_string(), filtered);
+                    }
+                }
+            }
+
+            result
         })
     }
 
@@ -2002,11 +2028,13 @@ Content is loaded alongside built-in configs.
     /// Gets categories that are sound categories (based on predefined list).
     /// Returns categories that exist in configs_by_category AND are in SOUND_CATEGORIES.
     fn get_sound_categories(&self) -> Vec<String> {
-        SOUND_CATEGORIES
+        let mut cats: Vec<String> = SOUND_CATEGORIES
             .iter()
             .filter(|cat| self.configs_by_category.contains_key(**cat))
             .map(|s| s.to_string())
-            .collect()
+            .collect();
+        cats.sort();
+        cats
     }
 
     /// Checks if a category is a sound category (as opposed to environment category).
@@ -2014,43 +2042,76 @@ Content is loaded alongside built-in configs.
         SOUND_CATEGORIES.contains(&category)
     }
 
-    /// Gets categories in proper order: environment categories first (in predefined order),
-    /// then sound categories (in predefined order), then any other categories alphabetically.
-    /// Hidden categories are excluded from the result.
-    fn get_ordered_categories(&self) -> Vec<String> {
-        let mut result = Vec::new();
-
-        // First: environment categories in predefined order
-        for cat in ENVIRONMENT_CATEGORIES {
-            if self.configs_by_category.contains_key(*cat) {
-                result.push(cat.to_string());
-            }
-        }
-
-        // Second: sound categories in predefined order
-        for cat in SOUND_CATEGORIES {
-            if self.configs_by_category.contains_key(*cat) {
-                result.push(cat.to_string());
-            }
-        }
-
-        // Third: any other categories not in predefined lists (alphabetically)
-        // Excludes hidden categories
-        let predefined: HashSet<&str> = ENVIRONMENT_CATEGORIES
-            .iter()
-            .chain(SOUND_CATEGORIES.iter())
-            .copied()
-            .collect();
+    /// Computes the display mapping for environment categories.
+    /// Environment categories with fewer than CATEGORY_EMERGENCE_THRESHOLD non-sound
+    /// configs are merged into the "Environments" catch-all.
+    ///
+    /// Returns: (ordered display names, display_name -> vec of original category names)
+    fn get_env_display_map(&self) -> (Vec<String>, HashMap<String, Vec<String>>) {
         let hidden: HashSet<&str> = HIDDEN_CATEGORIES.iter().copied().collect();
-        let mut other: Vec<String> = self
-            .configs_by_category
+        let mut display_map: HashMap<String, Vec<String>> = HashMap::new();
+
+        for (cat, configs) in &self.configs_by_category {
+            if hidden.contains(cat.as_str()) || self.is_sound_category(cat) {
+                continue;
+            }
+            // Count env-type configs (exclude sounds that may be in this category)
+            let env_count = configs
+                .iter()
+                .filter(|c| !c.is_sound_effect() && !c.is_loop_sound())
+                .count();
+            if env_count == 0 {
+                continue;
+            }
+            if env_count >= CATEGORY_EMERGENCE_THRESHOLD {
+                // Emerged category — capitalize for display
+                let display_name = Self::capitalize_category(cat);
+                display_map
+                    .entry(display_name)
+                    .or_default()
+                    .push(cat.clone());
+            } else {
+                // Below threshold — merge into catch-all
+                display_map
+                    .entry(CATCHALL_ENVIRONMENTS.to_string())
+                    .or_default()
+                    .push(cat.clone());
+            }
+        }
+
+        // Order: catch-all first, then emerged categories alphabetically
+        let mut ordered = Vec::new();
+        if display_map.contains_key(CATCHALL_ENVIRONMENTS) {
+            ordered.push(CATCHALL_ENVIRONMENTS.to_string());
+        }
+        let mut emerged: Vec<String> = display_map
             .keys()
-            .filter(|k| !predefined.contains(k.as_str()) && !hidden.contains(k.as_str()))
+            .filter(|k| *k != CATCHALL_ENVIRONMENTS)
             .cloned()
             .collect();
-        other.sort();
-        result.extend(other);
+        emerged.sort();
+        ordered.extend(emerged);
 
+        (ordered, display_map)
+    }
+
+    /// Capitalizes a category name for display (e.g., "tavern" → "Tavern", "combat_sfx" → "Combat_sfx").
+    fn capitalize_category(cat: &str) -> String {
+        let mut chars = cat.chars();
+        match chars.next() {
+            None => String::new(),
+            Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+        }
+    }
+
+    /// Gets categories in proper order: environment display categories first,
+    /// then sound categories alphabetically. Hidden categories are excluded.
+    fn get_ordered_categories(&self) -> Vec<String> {
+        let (env_display, _) = self.get_env_display_map();
+        let sound_cats = self.get_sound_categories();
+
+        let mut result = env_display;
+        result.extend(sound_cats);
         result
     }
 

@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -202,12 +204,24 @@ jobs:
           SND_COUNT=$(ls "$XCODE_SRC/sound_conf/"*.yaml 2>/dev/null | wc -l)
           echo "  Copied $SND_COUNT sound_conf files"
 
+          echo "Copying freesound_sounds/ into $XCODE_SRC..."
+          cp -r ../../freesound_sounds "$XCODE_SRC/freesound_sounds"
+          FS_COUNT=$(find "$XCODE_SRC/freesound_sounds" -name "*.mp3" | wc -l)
+          echo "  Copied $FS_COUNT freesound MP3 files"
+
+          echo "Copying sounds/ into $XCODE_SRC..."
+          cp -r ../../sounds "$XCODE_SRC/sounds"
+          SOUNDS_COUNT=$(ls "$XCODE_SRC/sounds/"* 2>/dev/null | wc -l)
+          echo "  Copied $SOUNDS_COUNT sound effect files"
+
           # Also copy into Assets/ for Tauri resource_dir resolution
           echo "Copying into gen/apple/Assets/ for resource_dir fallback..."
           mkdir -p gen/apple/Assets/env_conf
           mkdir -p gen/apple/Assets/sound_conf
           cp ../../env_conf/*.yaml gen/apple/Assets/env_conf/ 2>/dev/null || true
           cp ../../sound_conf/*.yaml gen/apple/Assets/sound_conf/ 2>/dev/null || true
+          cp -r ../../freesound_sounds gen/apple/Assets/freesound_sounds
+          cp -r ../../sounds gen/apple/Assets/sounds
 
           # Inject folder references into pbxproj so Xcode includes them
           # in the "Copy Bundle Resources" build phase
@@ -224,8 +238,8 @@ jobs:
               """Generate a 24-char uppercase hex UUID for pbxproj."""
               return uuid.uuid4().hex[:24].upper()
 
-          # Generate IDs for env_conf and sound_conf folder references
-          folders = ["env_conf", "sound_conf"]
+          # Generate IDs for folder references (configs + bundled audio)
+          folders = ["env_conf", "sound_conf", "freesound_sounds", "sounds"]
           file_ref_ids = {name: make_uuid() for name in folders}
           build_file_ids = {name: make_uuid() for name in folders}
 
@@ -317,11 +331,11 @@ jobs:
           with open(pbxproj, 'w') as f:
               f.write(content)
 
-          print("Successfully injected env_conf and sound_conf into pbxproj")
+          print("Successfully injected folder references into pbxproj")
           PYEOF
 
           echo "=== Verifying config injection ==="
-          grep -c 'env_conf\|sound_conf' "$PBXPROJ" && echo "Config references found in pbxproj" || echo "WARNING: config references not found in pbxproj"
+          grep -c 'env_conf\|sound_conf\|freesound_sounds\|sounds' "$PBXPROJ" && echo "Folder references found in pbxproj" || echo "WARNING: folder references not found in pbxproj"
 
       - name: Configure manual code signing
         working-directory: rust/immerse-tauri

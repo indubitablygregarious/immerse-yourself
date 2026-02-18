@@ -414,12 +414,18 @@ impl AppState {
                             .filter(|s| !engine.is_url_cached(&s.url))
                             .map(|s| s.url.clone())
                             .collect();
-                        if !uncached.is_empty() {
+                        if !uncached.is_empty() && engine.downloads_enabled() {
                             for url in &uncached {
                                 engine.pre_download(url);
                             }
                             (true, Some(engine), uncached)
                         } else {
+                            if !uncached.is_empty() {
+                                tracing::info!(
+                                    "Skipping download wait for {} uncached atmosphere sounds (downloads disabled), starting environment immediately",
+                                    uncached.len()
+                                );
+                            }
                             (false, None, vec![])
                         }
                     } else {
@@ -783,7 +789,7 @@ impl AppState {
                                 .filter(|s| !engine.is_url_cached(&s.url))
                                 .map(|s| s.url.clone())
                                 .collect();
-                            if !uncached.is_empty() {
+                            if !uncached.is_empty() && engine.downloads_enabled() {
                                 for url in &uncached {
                                     engine.pre_download(url);
                                 }
@@ -795,6 +801,12 @@ impl AppState {
                                     time.to_string(),
                                 )
                             } else {
+                                if !uncached.is_empty() {
+                                    tracing::info!(
+                                        "Skipping download wait for {} uncached atmosphere sounds (downloads disabled), starting environment immediately",
+                                        uncached.len()
+                                    );
+                                }
                                 (false, None, vec![], config_name.to_string(), time.to_string())
                             }
                         } else {

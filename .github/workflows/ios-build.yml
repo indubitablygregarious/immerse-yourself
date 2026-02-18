@@ -163,14 +163,15 @@ jobs:
         working-directory: rust/immerse-tauri
         run: |
           # Tauri's bundle.resources doesn't reliably work on iOS yet.
-          # Workaround: inject config/audio dirs into the generated Xcode project
-          # so they end up in the .app bundle.
+          # Workaround: inject content into the generated Xcode project so it
+          # ends up in the .app bundle.
           #
           # Strategy:
-          # 1. Copy into the Xcode source tree + add to pbxproj as folder
-          #    references in "Copy Bundle Resources" build phase (primary).
-          # 2. Copy config YAMLs (NOT audio) into gen/apple/Assets/ for
-          #    Tauri resource_dir resolution fallback.
+          # 1. Audio + configs go into gen/apple/Assets/ — Tauri serves this
+          #    as the resource dir on iOS (.app/assets/). Single copy only.
+          # 2. Config dirs (env_conf, sound_conf) also get pbxproj folder
+          #    references as a belt-and-suspenders fallback (tiny, ~140KB).
+          # 3. Audio dirs are NOT injected via pbxproj to avoid duplication.
 
           PBXPROJ="gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
 
@@ -204,25 +205,20 @@ jobs:
           SND_COUNT=$(ls "$XCODE_SRC/sound_conf/"*.yaml 2>/dev/null | wc -l)
           echo "  Copied $SND_COUNT sound_conf files"
 
-          echo "Copying freesound_sounds/ into $XCODE_SRC..."
-          cp -r ../../freesound_sounds "$XCODE_SRC/freesound_sounds"
-          FS_COUNT=$(find "$XCODE_SRC/freesound_sounds" -name "*.mp3" | wc -l)
-          echo "  Copied $FS_COUNT freesound MP3 files"
-
-          echo "Copying sounds/ into $XCODE_SRC..."
-          cp -r ../../sounds "$XCODE_SRC/sounds"
-          SOUNDS_COUNT=$(ls "$XCODE_SRC/sounds/"* 2>/dev/null | wc -l)
-          echo "  Copied $SOUNDS_COUNT sound effect files"
-
-          # Also copy config YAMLs into Assets/ for Tauri resource_dir resolution
-          # NOTE: Do NOT copy freesound_sounds/ or sounds/ here — they are already
-          # injected via pbxproj folder references above. Copying into Assets/ would
-          # cause Tauri to bundle them a second time (~330MB duplicate).
-          echo "Copying config YAMLs into gen/apple/Assets/ for resource_dir fallback..."
+          # Copy all content into Assets/ — Tauri serves this as the resource dir
+          # on iOS (app looks for files under .app/assets/). This is the PRIMARY
+          # mechanism for bundling content. Audio dirs are NOT also injected via
+          # pbxproj to avoid duplication (~330MB saved).
+          echo "Copying into gen/apple/Assets/ (Tauri resource dir)..."
           mkdir -p gen/apple/Assets/env_conf
           mkdir -p gen/apple/Assets/sound_conf
           cp ../../env_conf/*.yaml gen/apple/Assets/env_conf/ 2>/dev/null || true
           cp ../../sound_conf/*.yaml gen/apple/Assets/sound_conf/ 2>/dev/null || true
+          cp -r ../../freesound_sounds gen/apple/Assets/freesound_sounds
+          cp -r ../../sounds gen/apple/Assets/sounds
+          FS_COUNT=$(find gen/apple/Assets/freesound_sounds -name "*.mp3" | wc -l)
+          SOUNDS_COUNT=$(ls gen/apple/Assets/sounds/* 2>/dev/null | wc -l)
+          echo "  Copied $FS_COUNT freesound MP3s, $SOUNDS_COUNT sound effects"
 
           # Inject folder references into pbxproj so Xcode includes them
           # in the "Copy Bundle Resources" build phase
@@ -239,8 +235,9 @@ jobs:
               """Generate a 24-char uppercase hex UUID for pbxproj."""
               return uuid.uuid4().hex[:24].upper()
 
-          # Generate IDs for folder references (configs + bundled audio)
-          folders = ["env_conf", "sound_conf", "freesound_sounds", "sounds"]
+          # Generate IDs for folder references (config dirs only — audio goes
+          # through Assets/ to avoid duplication in the app bundle)
+          folders = ["env_conf", "sound_conf"]
           file_ref_ids = {name: make_uuid() for name in folders}
           build_file_ids = {name: make_uuid() for name in folders}
 
@@ -342,20 +339,12 @@ jobs:
         working-directory: rust/immerse-tauri
         run: |
           # Remove bundled freesound MP3s that aren't referenced by any env_conf
-          # YAML. This keeps the source repo intact but shrinks the iOS bundle.
+          # YAML. Operates on gen/apple/Assets/ (the Tauri resource dir source).
           python3 << 'PYEOF'
           import json, os, re, glob
 
-          # Find the Xcode source directory (same logic as bundle step)
-          xcode_src = None
-          for candidate in ["gen/apple/immerse-tauri_iOS", "gen/apple/Sources/immerse-tauri", "gen/apple/Sources"]:
-              if os.path.isdir(candidate):
-                  xcode_src = candidate
-                  break
-          if not xcode_src:
-              xcode_src = "gen/apple"
-
-          manifest_path = os.path.join(xcode_src, "freesound_sounds", "manifest.json")
+          assets_dir = "gen/apple/Assets"
+          manifest_path = os.path.join(assets_dir, "freesound_sounds", "manifest.json")
           if not os.path.exists(manifest_path):
               print(f"No manifest found at {manifest_path}, skipping trim")
               raise SystemExit(0)
@@ -366,7 +355,7 @@ jobs:
           # Collect all freesound URLs referenced in env_conf YAMLs
           used_urls = set()
           url_pattern = re.compile(r'https?://freesound\.org/people/[^\s"\']+')
-          yaml_dir = os.path.join(xcode_src, "env_conf")
+          yaml_dir = os.path.join(assets_dir, "env_conf")
           for yaml_file in glob.glob(os.path.join(yaml_dir, "*.yaml")):
               with open(yaml_file) as f:
                   for match in url_pattern.finditer(f.read()):
@@ -388,7 +377,7 @@ jobs:
               else:
                   # Delete the MP3 file from the bundle
                   # rel_path is like "freesound_sounds/cc0/file.mp3"
-                  full_path = os.path.join(xcode_src, rel_path)
+                  full_path = os.path.join(assets_dir, rel_path)
                   if os.path.exists(full_path):
                       size_mb = os.path.getsize(full_path) / (1024 * 1024)
                       os.remove(full_path)

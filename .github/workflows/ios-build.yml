@@ -163,14 +163,14 @@ jobs:
         working-directory: rust/immerse-tauri
         run: |
           # Tauri's bundle.resources doesn't reliably work on iOS yet.
-          # Workaround: inject env_conf/ and sound_conf/ YAML files into the
-          # generated Xcode project so they end up in the .app bundle.
+          # Workaround: inject config/audio dirs into the generated Xcode project
+          # so they end up in the .app bundle.
           #
-          # Two-pronged approach:
+          # Strategy:
           # 1. Copy into the Xcode source tree + add to pbxproj as folder
-          #    references in "Copy Bundle Resources" build phase.
-          # 2. Also copy into gen/apple/Assets/ which Tauri may already
-          #    include in the bundle (for resource_dir resolution).
+          #    references in "Copy Bundle Resources" build phase (primary).
+          # 2. Copy config YAMLs (NOT audio) into gen/apple/Assets/ for
+          #    Tauri resource_dir resolution fallback.
 
           PBXPROJ="gen/apple/immerse-tauri.xcodeproj/project.pbxproj"
 
@@ -214,14 +214,15 @@ jobs:
           SOUNDS_COUNT=$(ls "$XCODE_SRC/sounds/"* 2>/dev/null | wc -l)
           echo "  Copied $SOUNDS_COUNT sound effect files"
 
-          # Also copy into Assets/ for Tauri resource_dir resolution
-          echo "Copying into gen/apple/Assets/ for resource_dir fallback..."
+          # Also copy config YAMLs into Assets/ for Tauri resource_dir resolution
+          # NOTE: Do NOT copy freesound_sounds/ or sounds/ here — they are already
+          # injected via pbxproj folder references above. Copying into Assets/ would
+          # cause Tauri to bundle them a second time (~330MB duplicate).
+          echo "Copying config YAMLs into gen/apple/Assets/ for resource_dir fallback..."
           mkdir -p gen/apple/Assets/env_conf
           mkdir -p gen/apple/Assets/sound_conf
           cp ../../env_conf/*.yaml gen/apple/Assets/env_conf/ 2>/dev/null || true
           cp ../../sound_conf/*.yaml gen/apple/Assets/sound_conf/ 2>/dev/null || true
-          cp -r ../../freesound_sounds gen/apple/Assets/freesound_sounds
-          cp -r ../../sounds gen/apple/Assets/sounds
 
           # Inject folder references into pbxproj so Xcode includes them
           # in the "Copy Bundle Resources" build phase
@@ -336,6 +337,77 @@ jobs:
 
           echo "=== Verifying config injection ==="
           grep -c 'env_conf\|sound_conf\|freesound_sounds\|sounds' "$PBXPROJ" && echo "Folder references found in pbxproj" || echo "WARNING: folder references not found in pbxproj"
+
+      - name: Trim unused sounds from bundle
+        working-directory: rust/immerse-tauri
+        run: |
+          # Remove bundled freesound MP3s that aren't referenced by any env_conf
+          # YAML. This keeps the source repo intact but shrinks the iOS bundle.
+          python3 << 'PYEOF'
+          import json, os, re, glob
+
+          # Find the Xcode source directory (same logic as bundle step)
+          xcode_src = None
+          for candidate in ["gen/apple/immerse-tauri_iOS", "gen/apple/Sources/immerse-tauri", "gen/apple/Sources"]:
+              if os.path.isdir(candidate):
+                  xcode_src = candidate
+                  break
+          if not xcode_src:
+              xcode_src = "gen/apple"
+
+          manifest_path = os.path.join(xcode_src, "freesound_sounds", "manifest.json")
+          if not os.path.exists(manifest_path):
+              print(f"No manifest found at {manifest_path}, skipping trim")
+              raise SystemExit(0)
+
+          with open(manifest_path) as f:
+              manifest = json.load(f)
+
+          # Collect all freesound URLs referenced in env_conf YAMLs
+          used_urls = set()
+          url_pattern = re.compile(r'https?://freesound\.org/people/[^\s"\']+')
+          yaml_dir = os.path.join(xcode_src, "env_conf")
+          for yaml_file in glob.glob(os.path.join(yaml_dir, "*.yaml")):
+              with open(yaml_file) as f:
+                  for match in url_pattern.finditer(f.read()):
+                      used_urls.add(match.group(0).rstrip("/") + "/")
+
+          print(f"Found {len(used_urls)} unique freesound URLs in env_conf/")
+          print(f"Manifest has {len(manifest)} entries")
+
+          # Determine which manifest entries are unused
+          trimmed_manifest = {}
+          removed_files = []
+          kept = 0
+          for url, rel_path in manifest.items():
+              # Normalize URL for comparison (ensure trailing slash)
+              norm_url = url.rstrip("/") + "/"
+              if norm_url in used_urls:
+                  trimmed_manifest[url] = rel_path
+                  kept += 1
+              else:
+                  # Delete the MP3 file from the bundle
+                  # rel_path is like "freesound_sounds/cc0/file.mp3"
+                  full_path = os.path.join(xcode_src, rel_path)
+                  if os.path.exists(full_path):
+                      size_mb = os.path.getsize(full_path) / (1024 * 1024)
+                      os.remove(full_path)
+                      removed_files.append((rel_path, size_mb))
+
+          total_saved_mb = sum(s for _, s in removed_files)
+          print(f"Kept {kept} sounds, removed {len(removed_files)} unused sounds")
+          print(f"Saved {total_saved_mb:.1f} MB")
+
+          if removed_files:
+              print("Removed files:")
+              for path, size in removed_files:
+                  print(f"  {path} ({size:.1f} MB)")
+
+          # Rewrite manifest with only used entries
+          with open(manifest_path, "w") as f:
+              json.dump(trimmed_manifest, f, indent=2)
+          print(f"Rewrote manifest.json with {len(trimmed_manifest)} entries")
+          PYEOF
 
       - name: Configure manual code signing
         working-directory: rust/immerse-tauri

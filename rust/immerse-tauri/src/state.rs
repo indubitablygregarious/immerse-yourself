@@ -209,6 +209,8 @@ pub struct WizBulbConfig {
 pub struct AppSettings {
     pub ignore_ssl_errors: bool,
     pub spotify_auto_start: String,
+    /// Whether on-demand freesound downloads are enabled (default: false).
+    pub downloads_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -216,6 +218,7 @@ impl Default for AppSettings {
         Self {
             ignore_ssl_errors: false,
             spotify_auto_start: "ask".to_string(),
+            downloads_enabled: false,
         }
     }
 }
@@ -950,7 +953,8 @@ impl AppState {
     pub fn save_app_settings(&self, settings: AppSettings) -> Result<(), String> {
         self.runtime.block_on(async {
             let inner = self.inner.lock().await;
-            inner.save_app_settings(settings)
+            let atmo = Arc::clone(&inner.atmosphere_engine);
+            inner.save_app_settings(settings, &atmo)
         })
     }
 }
@@ -1011,6 +1015,43 @@ impl AppStateInner {
         }
         let sound_engine = Arc::new(sound_engine);
         let atmosphere_engine = Arc::new(AtmosphereEngine::new_with_cache_dir(&cache_dir));
+
+        // Load sound manifest (bundled sounds) - check user content dir first, then project root
+        let manifest_locations: Vec<(&Path, &str)> = {
+            let mut locs: Vec<(&Path, &str)> = Vec::new();
+            if let Some(ref ucd) = user_content_dir {
+                locs.push((ucd.as_path(), "user content dir"));
+            }
+            locs.push((project_root.as_path(), "project root"));
+            locs
+        };
+        for (base_dir, label) in &manifest_locations {
+            let manifest_path = base_dir.join("freesound_sounds").join("manifest.json");
+            if manifest_path.exists() {
+                atmosphere_engine.load_manifest(base_dir, &manifest_path);
+                tracing::info!("Loaded sound manifest from {} ({} entries)", label, atmosphere_engine.manifest_size());
+                break;
+            }
+        }
+
+        // Read downloads_enabled from settings and apply to atmosphere engine
+        {
+            let settings_path = project_root.join("settings.ini");
+            let downloads_enabled = if settings_path.exists() {
+                let mut ini = configparser::ini::Ini::new();
+                if ini.load(&settings_path).is_ok() {
+                    ini.get("downloads", "enabled")
+                        .map(|v| v.to_lowercase() == "true")
+                        .unwrap_or(false)
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            atmosphere_engine.set_downloads_enabled(downloads_enabled);
+            tracing::info!("Downloads enabled: {}", downloads_enabled);
+        }
 
         // Try to load lights engine from config
         let lights_engine = if project_root.join(".wizbulb.ini").exists() {
@@ -2395,6 +2436,9 @@ Content is loaded alongside built-in configs.
                 settings.ignore_ssl_errors = ini.get("downloads", "ignore_ssl_errors")
                     .map(|v| v.to_lowercase() == "true")
                     .unwrap_or(false);
+                settings.downloads_enabled = ini.get("downloads", "enabled")
+                    .map(|v| v.to_lowercase() == "true")
+                    .unwrap_or(false);
                 settings.spotify_auto_start = ini.get("spotify", "auto_start")
                     .unwrap_or_else(|| "ask".to_string());
             }
@@ -2404,15 +2448,19 @@ Content is loaded alongside built-in configs.
     }
 
     /// Saves the app settings.
-    fn save_app_settings(&self, settings: AppSettings) -> Result<(), String> {
+    fn save_app_settings(&self, settings: AppSettings, atmosphere_engine: &Arc<AtmosphereEngine>) -> Result<(), String> {
         let settings_path = self.project_root.join("settings.ini");
 
-        // Update both settings
         self.update_settings_ini(&settings_path, "downloads", "ignore_ssl_errors",
             if settings.ignore_ssl_errors { "true" } else { "false" })?;
+        self.update_settings_ini(&settings_path, "downloads", "enabled",
+            if settings.downloads_enabled { "true" } else { "false" })?;
         self.update_settings_ini(&settings_path, "spotify", "auto_start", &settings.spotify_auto_start)?;
 
-        tracing::info!("Saved app settings");
+        // Apply downloads_enabled to the atmosphere engine
+        atmosphere_engine.set_downloads_enabled(settings.downloads_enabled);
+
+        tracing::info!("Saved app settings (downloads_enabled={})", settings.downloads_enabled);
         Ok(())
     }
 

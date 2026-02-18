@@ -4,7 +4,7 @@ description: "Dark dungeon atmosphere with flickering torches and mysterious sha
 icon: "🏰"
 
 metadata:
-  tags: ["dungeon", "underground", "dark", "atmospheric", "exploration", "medieval", "dangerous", "tense"]
+  tags: ["dungeon", "underground", "dark", "atmospheric", "exploration"]
   intensity: "medium"
   suitable_for: ["dungeon exploration", "mysterious encounters", "atmospheric scenes"]
 
@@ -47,7 +47,7 @@ engines:
         probability: 0.3
 
       # Eerie whispers (optional)
-      - url: "https://freesound.org/people/newlocknew/sounds/615882/"
+      - url: "https://freesound.org/people/jdagenet/sounds/196002/"
         optional: true
         probability: 0.5
         volume: 25

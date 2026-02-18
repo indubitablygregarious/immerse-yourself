@@ -9,8 +9,6 @@ metadata:
   - forge
   - metal
   - fire
-  - medieval
-  - urban
   intensity: medium
   suitable_for: &id001
   - shopping

@@ -3,9 +3,6 @@
 name: "Battle Intro"
 description: "Dramatic sounds to introduce combat - danger stings, sword draws, and war drums"
 
-metadata:
-  tags: [combat, battle, dramatic, intro]
-
 sounds:
   # Original danger sound from sounds/ directory
   - file: "sounds/danger.opus"

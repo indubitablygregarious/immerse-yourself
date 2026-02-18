@@ -224,6 +224,26 @@ impl AtmosphereEngine {
         self.download_queue.find_cached_public(url).is_some()
     }
 
+    /// Loads a sound manifest for resolving freesound URLs to local bundled files.
+    pub fn load_manifest(&self, base_dir: &Path, manifest_path: &Path) {
+        self.download_queue.load_manifest(base_dir, manifest_path);
+    }
+
+    /// Returns the number of entries in the sound manifest.
+    pub fn manifest_size(&self) -> usize {
+        self.download_queue.manifest_size()
+    }
+
+    /// Sets whether on-demand downloads are enabled.
+    pub fn set_downloads_enabled(&self, enabled: bool) {
+        self.download_queue.set_downloads_enabled(enabled);
+    }
+
+    /// Returns whether on-demand downloads are enabled.
+    pub fn downloads_enabled(&self) -> bool {
+        self.download_queue.downloads_enabled()
+    }
+
     /// Enqueues a URL for download without starting playback.
     pub fn pre_download(&self, url: &str) -> bool {
         self.download_queue.enqueue(url, |_| {})

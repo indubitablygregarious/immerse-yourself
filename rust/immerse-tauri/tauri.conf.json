@@ -33,7 +33,8 @@
     "resources": {
       "../../env_conf": "env_conf",
       "../../sound_conf": "sound_conf",
-      "../../sounds": "sounds"
+      "../../sounds": "sounds",
+      "../../freesound_sounds/**/*": "freesound_sounds/"
     }
   }
 }

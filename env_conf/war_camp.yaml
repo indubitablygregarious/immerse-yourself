@@ -4,7 +4,7 @@ description: "Military encampment with war drums, armor clanking, and soldiers p
 icon: "⚔️"
 
 metadata:
-  tags: ["outdoor", "military", "camp", "army", "war", "preparation", "medieval", "tense", "dangerous"]
+  tags: ["outdoor", "military", "camp", "army", "war", "preparation"]
   intensity: "medium"
   suitable_for: ["military briefings", "army encounters", "mercenary camps", "siege preparations"]
 
@@ -23,7 +23,7 @@ engines:
     mix:
       # War drums
       - url: "https://freesound.org/people/Mark_Murray/sounds/648393/"
-      - url: "https://freesound.org/people/Mark_Murray/sounds/723202/"
+      - url: "https://freesound.org/people/Infinita08/sounds/459561/"
         optional: true
         probability: 0.5
         volume: 50

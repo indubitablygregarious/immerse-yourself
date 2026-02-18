@@ -1,0 +1,4 @@
+freesound_sounds/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+sounds/*.mp3 filter=lfs diff=lfs merge=lfs -text
+sounds/*.wav filter=lfs diff=lfs merge=lfs -text
+sounds/*.opus filter=lfs diff=lfs merge=lfs -text

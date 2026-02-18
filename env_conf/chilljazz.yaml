@@ -4,7 +4,7 @@ description: "Ultra-relaxed jazz atmosphere with soft warm lighting and gentle a
 icon: "🎷"
 
 metadata:
-  tags: ["relaxation", "jazz", "ambient", "slow", "peaceful", "music", "indoor", "urban", "rest"]
+  tags: ["relaxation", "jazz", "ambient", "slow", "peaceful", "music"]
   intensity: "low"
   suitable_for: ["meditation", "reading", "background music", "downtime"]
 
@@ -23,11 +23,11 @@ engines:
     max_sounds: 4
     mix:
       # Cafe ambience (required)
-      - url: "https://freesound.org/people/CharleneZ/sounds/326371/"
+      - url: "https://freesound.org/people/felix.blume/sounds/422097/"
         volume: 50
 
       # Coffee shop binaural (required)
-      - url: "https://freesound.org/people/Speedenza/sounds/460125/"
+      - url: "https://freesound.org/people/Hitrison/sounds/190941/"
         volume: 45
 
       # Small indie cafe afternoon (optional)

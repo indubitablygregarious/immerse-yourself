@@ -9,8 +9,6 @@ metadata:
   - overland
   - journey
   - wilderness
-  - outdoor
-  - nature
   intensity: medium
   suitable_for: &id001
   - overworld travel
@@ -42,7 +40,7 @@ time_variants:
         mix:
         - url: https://freesound.org/people/klankbeeld/sounds/273162/
           volume: 60
-        - url: https://freesound.org/people/newlocknew/sounds/784341/
+        - url: https://freesound.org/people/szegvari/sounds/617747/
           volume: 50
         - url: https://freesound.org/people/arpeggio1980/sounds/523389/
           volume: 45

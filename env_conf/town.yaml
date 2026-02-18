@@ -9,8 +9,6 @@ metadata:
   - village
   - medieval
   - cobblestone
-  - urban
-  - rural
   intensity: low
   suitable_for: &id001
   - town exploration

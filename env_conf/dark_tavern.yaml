@@ -4,7 +4,7 @@ description: "Atmospheric dark tavern with dim torch lighting and door sounds"
 icon: "🌑"
 
 metadata:
-  tags: ["social", "indoor", "dark", "mysterious", "medieval", "tavern", "urban", "tense"]
+  tags: ["social", "indoor", "dark", "mysterious", "medieval", "tavern"]
   intensity: "low"
   suitable_for: ["tabletop gaming", "social scenes", "mysterious encounters", "noir"]
 
@@ -37,7 +37,7 @@ engines:
         probability: 0.6
 
       # Distant whispers/quiet conversation (optional)
-      - url: "https://freesound.org/people/soundslikewillem/sounds/449550/"
+      - url: "https://freesound.org/people/conleec/sounds/212095/"
         volume: 25
         optional: true
         probability: 0.4

@@ -10,8 +10,6 @@ metadata:
   - outdoor
   - travel
   - exploration
-  - wilderness
-  - peaceful
   intensity: low
   suitable_for: &id001
   - forest travel
@@ -371,7 +369,7 @@ time_variants:
           volume: 35
           optional: true
           probability: 0.5
-        - url: https://freesound.org/people/Taure/sounds/380156/
+        - url: https://freesound.org/people/taure/sounds/380156/
           volume: 30
           optional: true
           probability: 0.3

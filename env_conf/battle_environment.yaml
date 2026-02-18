@@ -4,7 +4,7 @@ description: "Intense red-themed combat with danger sounds and white lightning f
 icon: "🗡️"
 
 metadata:
-  tags: ["combat", "battle", "intense", "fire", "red", "outdoor", "medieval", "military", "dangerous"]
+  tags: ["combat", "battle", "intense", "fire", "red"]
   intensity: "high"
   suitable_for: ["boss fights", "combat encounters", "fire battles", "volcanic"]
 

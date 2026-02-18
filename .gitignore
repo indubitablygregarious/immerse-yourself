@@ -24,6 +24,11 @@ gitleaks-report.json
 *.aif
 *.swf.mp3
 
+# Allow bundled freesound sounds and entry sounds
+!freesound_sounds/**/*.mp3
+!sounds/*.mp3
+!sounds/*.wav
+
 # Python (archived, but ignore if any stray files appear)
 __pycache__/
 *.pyc

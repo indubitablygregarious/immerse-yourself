@@ -9,6 +9,7 @@ use std::thread;
 
 use regex::Regex;
 use reqwest::blocking::Client;
+use serde_json;
 
 /// Download status for UI updates.
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +42,10 @@ pub struct DownloadQueue {
     pending_urls: Arc<RwLock<HashSet<String>>>,
     status_map: Arc<RwLock<HashMap<String, DownloadStatus>>>,
     is_processing: Arc<Mutex<bool>>,
+    /// Sound manifest mapping freesound URLs to local file paths (bundled sounds).
+    manifest: Arc<RwLock<HashMap<String, PathBuf>>>,
+    /// Whether on-demand downloads are enabled. When false, enqueue() skips downloading.
+    downloads_enabled: Arc<RwLock<bool>>,
 }
 
 impl DownloadQueue {
@@ -55,6 +60,8 @@ impl DownloadQueue {
             pending_urls: Arc::new(RwLock::new(HashSet::new())),
             status_map: Arc::new(RwLock::new(HashMap::new())),
             is_processing: Arc::new(Mutex::new(false)),
+            manifest: Arc::new(RwLock::new(HashMap::new())),
+            downloads_enabled: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -66,11 +73,21 @@ impl DownloadQueue {
     where
         F: FnOnce(Result<PathBuf, String>) + Send + 'static,
     {
-        // Check if already cached
+        // Check if already cached (manifest + cache dir)
         if let Some(cached) = self.find_cached(url) {
             tracing::info!("Sound already cached: {}", url);
             callback(Ok(cached));
             return false; // Not queued, already had it
+        }
+
+        // If downloads are disabled, don't queue
+        {
+            let enabled = self.downloads_enabled.read().unwrap();
+            if !*enabled {
+                tracing::debug!("Downloads disabled, skipping: {}", url);
+                callback(Err("Downloads disabled".into()));
+                return false;
+            }
         }
 
         // Check if already in queue
@@ -154,15 +171,73 @@ impl DownloadQueue {
         self.find_cached(url)
     }
 
+    /// Loads a sound manifest mapping freesound URLs to local file paths.
+    ///
+    /// The manifest JSON maps URLs to relative paths (e.g., "freesound_sounds/cc0/file.mp3").
+    /// The `base_dir` is used to resolve relative paths to absolute paths.
+    pub fn load_manifest(&self, base_dir: &Path, manifest_path: &Path) {
+        match std::fs::read_to_string(manifest_path) {
+            Ok(contents) => {
+                match serde_json::from_str::<HashMap<String, String>>(&contents) {
+                    Ok(raw_manifest) => {
+                        let mut manifest = self.manifest.write().unwrap();
+                        let mut count = 0;
+                        for (url, rel_path) in raw_manifest {
+                            let abs_path = base_dir.join(&rel_path);
+                            if abs_path.exists() {
+                                manifest.insert(url, abs_path);
+                                count += 1;
+                            }
+                        }
+                        tracing::info!("Loaded sound manifest: {} entries from {:?}", count, manifest_path);
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to parse sound manifest {:?}: {}", manifest_path, e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!("No sound manifest at {:?}: {}", manifest_path, e);
+            }
+        }
+    }
+
+    /// Returns the number of entries in the sound manifest.
+    pub fn manifest_size(&self) -> usize {
+        self.manifest.read().unwrap().len()
+    }
+
+    /// Sets whether on-demand downloads are enabled.
+    pub fn set_downloads_enabled(&self, enabled: bool) {
+        let mut flag = self.downloads_enabled.write().unwrap();
+        *flag = enabled;
+        tracing::info!("Downloads enabled: {}", enabled);
+    }
+
+    /// Returns whether on-demand downloads are enabled.
+    pub fn downloads_enabled(&self) -> bool {
+        *self.downloads_enabled.read().unwrap()
+    }
+
     /// Finds a cached file for a freesound URL.
     fn find_cached(&self, url: &str) -> Option<PathBuf> {
+        // Check bundled sound manifest first
+        {
+            let manifest = self.manifest.read().unwrap();
+            if let Some(path) = manifest.get(url) {
+                if path.exists() {
+                    tracing::debug!("Found bundled sound for {}", url);
+                    return Some(path.clone());
+                }
+            }
+        }
+
         let (creator, sound_id) = match parse_freesound_url(url) {
             Some(parsed) => parsed,
             None => return None,
         };
 
         // Look for files matching creator_id_*
-        let pattern = format!("{}_{}_{}", creator, sound_id, "*");
         if let Ok(entries) = std::fs::read_dir(&self.cache_dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();

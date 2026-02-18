@@ -4,7 +4,7 @@ description: "Enchanted magical forest with tinkling bells, giggling sprites, an
 icon: "🧚"
 
 metadata:
-  tags: ["outdoor", "fey", "magical", "forest", "fairy", "enchanted", "otherworldly", "wilderness", "peaceful", "mysterious", "nature"]
+  tags: ["outdoor", "fey", "magical", "forest", "fairy", "enchanted", "otherworldly"]
   intensity: "medium"
   suitable_for: ["fey encounters", "fairy courts", "magical quests", "enchanted locations"]
 
@@ -30,7 +30,7 @@ engines:
         optional: true
         probability: 0.5
         volume: 50
-      - url: "https://freesound.org/people/BristolStories/sounds/51704/"
+      - url: "https://freesound.org/people/Vrymaa/sounds/794217/"
         optional: true
         probability: 0.5
         volume: 50

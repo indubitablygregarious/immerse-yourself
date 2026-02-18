@@ -3,28 +3,14 @@
 name: "Scene Transition"
 description: "Various whoosh, swoosh, and magical transition sounds for scene changes"
 
-metadata:
-  tags: [transition, whoosh, magic, cinematic]
-
 sounds:
   # Original whoosh (the default transition sound)
   - url: "https://freesound.org/people/DJT4NN3R/sounds/449994/"
     description: "Original chill whoosh transition"
 
   # Whoosh/Swoosh variations
-  - url: "https://freesound.org/people/Robinhood76/sounds/135566/"
-    description: "Clean transitional whoosh"
-
-  - url: "https://freesound.org/people/Speedenza/sounds/241146/"
-    description: "Deep whoosh with sweep"
-
   - url: "https://freesound.org/people/servicedesign/sounds/219095/"
     description: "Vocal whoosh for animations"
-
-  - url: "https://freesound.org/people/RescopicSound/sounds/749404/"
-    description: "Cinematic sci-fi whoosh"
-    volume: 60
-    fadeout: 3000
 
   - url: "https://freesound.org/people/anagar/sounds/267951/"
     description: "Simple swoosh transition"
@@ -32,19 +18,6 @@ sounds:
   # Magic/Spell transitions
   - url: "https://freesound.org/people/qubodup/sounds/817466/"
     description: "Magic bell chime transition"
-
-  - url: "https://freesound.org/people/Robinhood76/sounds/734823/"
-    description: "Magic shiny ringing transform"
-
-  - url: "https://freesound.org/people/Timbre/sounds/221683/"
-    description: "Magic wand airy spell"
-
-  - url: "https://freesound.org/people/SergeQuadrado/sounds/455361/"
-    description: "Soft airy fairy glissando"
-    volume: 50
-
-  - url: "https://freesound.org/people/Speedenza/sounds/168180/"
-    description: "Supernatural action whoosh"
 
   # Cinematic impacts
   - url: "https://freesound.org/people/newlocknew/sounds/790652/"

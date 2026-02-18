@@ -29,6 +29,7 @@ interface WizBulbConfig {
 interface AppSettings {
   ignore_ssl_errors: boolean;
   spotify_auto_start: string;
+  downloads_enabled: boolean;
 }
 
 const PANELS: { id: SettingsPanel; icon: string; label: string }[] = [
@@ -509,10 +510,10 @@ const DownloadsPanel: FC<DownloadsPanelProps> = ({ settings, onSettingsChange })
   const [reloading, setReloading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleSslChange = async (checked: boolean) => {
+  const handleSettingChange = async (key: keyof AppSettings, value: boolean | string) => {
     setSaving(true);
     setMessage(null);
-    const newSettings = { ...settings, ignore_ssl_errors: checked };
+    const newSettings = { ...settings, [key]: value };
     try {
       await invoke('save_app_settings', { settings: newSettings });
       onSettingsChange(newSettings);
@@ -556,8 +557,28 @@ const DownloadsPanel: FC<DownloadsPanelProps> = ({ settings, onSettingsChange })
     <div className="settings-panel">
       <h3 className="settings-panel-title">Downloads</h3>
       <p className="settings-panel-description">
-        Configure download settings for freesound.org sounds.
+        Atmosphere sounds are bundled with the app. On-demand downloads are only
+        needed if you add custom environments with freesound URLs that aren't bundled.
       </p>
+
+      <div className="settings-section">
+        <label className="settings-label">On-Demand Downloads</label>
+        <div className="settings-checkbox-group">
+          <label className="settings-checkbox">
+            <input
+              type="checkbox"
+              checked={settings.downloads_enabled}
+              onChange={e => handleSettingChange('downloads_enabled', e.target.checked)}
+              disabled={saving}
+            />
+            <span>Enable on-demand downloads from freesound.org</span>
+          </label>
+        </div>
+        <p className="settings-help-text">
+          When disabled, only bundled sounds play. Enable this if you add custom
+          environments that reference freesound URLs not included in the bundle.
+        </p>
+      </div>
 
       <div className="settings-section">
         <label className="settings-label">SSL Certificate Verification</label>
@@ -566,7 +587,7 @@ const DownloadsPanel: FC<DownloadsPanelProps> = ({ settings, onSettingsChange })
             <input
               type="checkbox"
               checked={settings.ignore_ssl_errors}
-              onChange={e => handleSslChange(e.target.checked)}
+              onChange={e => handleSettingChange('ignore_ssl_errors', e.target.checked)}
               disabled={saving}
             />
             <span>Ignore SSL certificate errors</span>
@@ -580,7 +601,7 @@ const DownloadsPanel: FC<DownloadsPanelProps> = ({ settings, onSettingsChange })
             when certificate verification fails.
           </p>
           <p className="settings-warning-caution">
-            <strong>⚠️ Security Warning:</strong> Only enable if you trust your network.
+            <strong>Warning:</strong> Only enable if you trust your network.
             Disabling SSL verification can expose you to man-in-the-middle attacks
             on untrusted networks.
           </p>

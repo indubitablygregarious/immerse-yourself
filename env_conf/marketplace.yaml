@@ -10,8 +10,6 @@ metadata:
   - crowd
   - shopping
   - busy
-  - medieval
-  - rural
   intensity: medium
   suitable_for: &id001
   - shopping
@@ -369,7 +367,7 @@ time_variants:
         - url: https://freesound.org/people/kyles/sounds/453860/
           optional: true
           probability: 0.6
-        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+        - url: https://freesound.org/people/conleec/sounds/212095/
           volume: 25
           optional: true
           probability: 0.4

@@ -9,10 +9,6 @@ metadata:
   - jail
   - dungeon
   - captivity
-  - medieval
-  - dangerous
-  - tense
-  - eerie
   intensity: medium
   suitable_for: &id001
   - prison scenes
@@ -48,7 +44,7 @@ time_variants:
         min_sounds: 2
         max_sounds: 4
         mix:
-        - url: https://freesound.org/people/MSHahen/sounds/267543/
+        - url: https://freesound.org/people/mshahen/sounds/267543/
           volume: 50
         - url: https://freesound.org/people/Sclolex/sounds/177958/
           volume: 45
@@ -131,7 +127,7 @@ time_variants:
         min_sounds: 2
         max_sounds: 4
         mix:
-        - url: https://freesound.org/people/MSHahen/sounds/267543/
+        - url: https://freesound.org/people/mshahen/sounds/267543/
           volume: 60
         - url: https://freesound.org/people/Sclolex/sounds/177958/
           volume: 50
@@ -218,7 +214,7 @@ time_variants:
         min_sounds: 2
         max_sounds: 4
         mix:
-        - url: https://freesound.org/people/MSHahen/sounds/267543/
+        - url: https://freesound.org/people/mshahen/sounds/267543/
           volume: 55
         - url: https://freesound.org/people/Sclolex/sounds/177958/
           volume: 50
@@ -314,7 +310,7 @@ time_variants:
         min_sounds: 2
         max_sounds: 4
         mix:
-        - url: https://freesound.org/people/MSHahen/sounds/267543/
+        - url: https://freesound.org/people/mshahen/sounds/267543/
           volume: 65
         - url: https://freesound.org/people/Sclolex/sounds/177958/
           volume: 60

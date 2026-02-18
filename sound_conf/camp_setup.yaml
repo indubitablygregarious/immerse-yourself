@@ -3,9 +3,6 @@
 name: "Camp Setup"
 description: "Various digging, shoveling, and camp setup sounds"
 
-metadata:
-  tags: [camp, outdoor, setup, digging]
-
 sounds:
   # Original dig sound from sounds/ directory
   - file: "sounds/dig.wav"
@@ -15,17 +12,11 @@ sounds:
   - url: "https://freesound.org/people/craigsmith/sounds/487086/"
     description: "Hammering metal stakes outdoors"
 
-  - url: "https://freesound.org/people/MorneDelport/sounds/326407/"
-    description: "Shovel digging into dry dirt"
-
   - url: "https://freesound.org/people/TRP/sounds/574859/"
     description: "Digging dirt with shovel"
 
   - url: "https://freesound.org/people/Glen_Dorner/sounds/654112/"
     description: "Shovel hitting hard dusty dirt"
-
-  - url: "https://freesound.org/people/180149/sounds/441937/"
-    description: "Shovel digging dirt and gravel"
 
   - url: "https://freesound.org/people/andersmmg/sounds/516318/"
     description: "Shovel digging in dirt"

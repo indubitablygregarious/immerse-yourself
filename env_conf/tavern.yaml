@@ -8,9 +8,6 @@ metadata:
   - indoor
   - cozy
   - medieval
-  - urban
-  - peaceful
-  - rest
   intensity: low
   suitable_for: &id001
   - tabletop gaming
@@ -46,11 +43,11 @@ time_variants:
         min_sounds: 2
         max_sounds: 4
         mix:
-        - url: https://freesound.org/people/hansende/sounds/263994/
+        - url: https://freesound.org/people/visionear/sounds/501417/
           volume: 55
         - url: https://freesound.org/people/EpicWizard/sounds/325194/
           volume: 30
-        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+        - url: https://freesound.org/people/conleec/sounds/212095/
           volume: 35
           optional: true
           probability: 0.4
@@ -127,9 +124,9 @@ time_variants:
         min_sounds: 3
         max_sounds: 5
         mix:
-        - url: https://freesound.org/people/hansende/sounds/263994/
+        - url: https://freesound.org/people/visionear/sounds/501417/
           volume: 70
-        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+        - url: https://freesound.org/people/conleec/sounds/212095/
           volume: 80
         - url: https://freesound.org/people/EpicWizard/sounds/325194/
           volume: 40
@@ -216,9 +213,9 @@ time_variants:
         min_sounds: 3
         max_sounds: 5
         mix:
-        - url: https://freesound.org/people/hansende/sounds/263994/
+        - url: https://freesound.org/people/visionear/sounds/501417/
           volume: 55
-        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+        - url: https://freesound.org/people/conleec/sounds/212095/
           volume: 60
         - url: https://freesound.org/people/EpicWizard/sounds/325194/
           volume: 35
@@ -293,9 +290,9 @@ time_variants:
         min_sounds: 3
         max_sounds: 5
         mix:
-        - url: https://freesound.org/people/hansende/sounds/263994/
+        - url: https://freesound.org/people/visionear/sounds/501417/
           volume: 70
-        - url: https://freesound.org/people/Robinhood76/sounds/700022/
+        - url: https://freesound.org/people/conleec/sounds/212095/
           volume: 85
         - url: https://freesound.org/people/EpicWizard/sounds/325194/
           volume: 45

@@ -9,11 +9,6 @@ metadata:
   - graveyard
   - horror
   - undead
-  - outdoor
-  - medieval
-  - dangerous
-  - eerie
-  - tense
   intensity: medium
   suitable_for: &id001
   - horror scenes
@@ -59,7 +54,7 @@ time_variants:
         - url: https://freesound.org/people/Breviceps/sounds/515290/
           optional: true
           probability: 0.4
-        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+        - url: https://freesound.org/people/chris5s/sounds/595880/
           optional: true
           probability: 0.5
           volume: 35
@@ -145,7 +140,7 @@ time_variants:
         - url: https://freesound.org/people/Breviceps/sounds/515290/
           optional: true
           probability: 0.7
-        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+        - url: https://freesound.org/people/chris5s/sounds/595880/
           optional: true
           probability: 0.5
           volume: 40
@@ -241,7 +236,7 @@ time_variants:
         - url: https://freesound.org/people/Breviceps/sounds/515290/
           optional: true
           probability: 0.5
-        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+        - url: https://freesound.org/people/chris5s/sounds/595880/
           optional: true
           probability: 0.5
           volume: 40
@@ -332,14 +327,14 @@ time_variants:
         - url: https://freesound.org/people/Breviceps/sounds/515290/
           optional: true
           probability: 0.7
-        - url: https://freesound.org/people/Jessica190091/sounds/491296/
+        - url: https://freesound.org/people/chris5s/sounds/595880/
           optional: true
           probability: 0.5
           volume: 45
         - url: https://freesound.org/people/Garuda1982/sounds/575645/
           optional: true
           probability: 0.5
-        - url: https://freesound.org/people/Taure/sounds/380156/
+        - url: https://freesound.org/people/taure/sounds/380156/
           volume: 30
           optional: true
           probability: 0.3

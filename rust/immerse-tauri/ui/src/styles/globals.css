@@ -599,11 +599,12 @@ body {
      minmax cap: max(180px, 25%-10px) ensures no more than 4 columns.
      min() wrapper prevents the minimum from exceeding available width on small screens. */
   grid-template-columns: repeat(auto-fit, minmax(min(max(180px, calc(25% - 10px)), 100%), 1fr));
+  /* Equal row heights prevent hover jitter from volume sliders resizing buttons/rows */
+  grid-auto-rows: 1fr;
   gap: 10px;
   padding: 1rem;
   overflow-y: auto;
   min-width: 0;
-  /* default align-content:stretch makes rows expand to fill height */
 }
 
 .env-grid-empty {
@@ -648,7 +649,7 @@ body {
   border-radius: 12px;
   background: var(--bg-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   overflow: visible; /* Allow volume slider to extend outside */
   text-align: center;
   /* Enable container queries for scaling internal elements */

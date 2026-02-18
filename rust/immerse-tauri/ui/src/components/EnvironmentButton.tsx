@@ -56,7 +56,7 @@ export const EnvironmentButton: FC<EnvironmentButtonProps> = ({
 
   const handleClick = (e: MouseEvent) => {
     // Don't trigger if clicking on volume slider
-    if ((e.target as HTMLElement).closest('.volume-slider')) {
+    if ((e.target as HTMLElement).closest('.volume-slider-segmented')) {
       return;
     }
     onClick();
@@ -84,7 +84,7 @@ export const EnvironmentButton: FC<EnvironmentButtonProps> = ({
         onMouseLeave={hideTooltip}
         onKeyDown={(e) => {
           // Don't trigger if pressing keys on volume slider
-          if ((e.target as HTMLElement).closest('.volume-slider')) {
+          if ((e.target as HTMLElement).closest('.volume-slider-segmented')) {
             return;
           }
           if (e.key === 'Enter' || e.key === ' ') {

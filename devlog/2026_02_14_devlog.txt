@@ -1,0 +1,3 @@
+# 2026-02-14
+
+Late-night session that bled past midnight. I went through all 20 free-tier environment configs and diversified their tags and metadata — adding suitable_for, intensity levels, and better keyword coverage so search and filtering actually work well. The bigger piece was refactoring the category sidebar to dynamically filter based on what content is actually available, rather than always showing every category. This means users who only have a handful of environments won't see a bunch of empty categories. Also cleaned up the sound_conf files with some additional metadata.

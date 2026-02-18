@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Install system dependencies
         run: |
@@ -38,9 +40,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            rust/immerse-tauri
-            rust/immerse-core
+          workspaces: rust -> target
           cache-targets: true
           cache-all-crates: true
           shared-key: linux-build
@@ -81,10 +81,12 @@ jobs:
         run: |
           DIST="immerse-yourself-linux-x86_64"
           mkdir -p "$DIST"
-          cp rust/immerse-tauri/target/release/immerse-tauri "$DIST/immerse-yourself"
+          cp rust/target/release/immerse-tauri "$DIST/immerse-yourself"
           cp -r env_conf "$DIST/"
           cp -r sound_conf "$DIST/"
           cp -r sounds "$DIST/"
+          cp -r freesound_sounds "$DIST/"
+          cp ATTRIBUTION.md "$DIST/" 2>/dev/null || true
           tar czf "${DIST}.tar.gz" "$DIST"
           echo "Built ${DIST}.tar.gz"
           ls -lh "${DIST}.tar.gz"
@@ -102,6 +104,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -109,9 +113,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            rust/immerse-tauri
-            rust/immerse-core
+          workspaces: rust -> target
           cache-targets: true
           cache-all-crates: true
           shared-key: macos-build
@@ -151,7 +153,7 @@ jobs:
       - name: Find DMG file
         id: find-dmg
         run: |
-          DMG_PATH=$(find rust/immerse-tauri/target/release/bundle/dmg -name "*.dmg" -type f | head -1)
+          DMG_PATH=$(find rust/target/release/bundle/dmg -name "*.dmg" -type f | head -1)
           echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
           echo "Found DMG: $DMG_PATH"
           ls -lh "$DMG_PATH"
@@ -169,6 +171,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -176,9 +180,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            rust/immerse-tauri
-            rust/immerse-core
+          workspaces: rust -> target
           cache-targets: true
           cache-all-crates: true
           shared-key: windows-build
@@ -212,6 +214,13 @@ jobs:
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall tauri-cli --no-confirm
 
+      - name: Generate Windows icon
+        shell: bash
+        run: |
+          cd rust/immerse-tauri/icons
+          magick icon.png -define icon:auto-resize=256,128,64,48,32,16 icon.ico
+          ls -lh icon.ico
+
       - name: Build Tauri app (no bundle)
         working-directory: rust/immerse-tauri
         run: cargo tauri build --no-bundle
@@ -221,10 +230,12 @@ jobs:
         run: |
           DIST="immerse-yourself-windows-x86_64"
           mkdir -p "$DIST"
-          cp rust/immerse-tauri/target/release/immerse-tauri.exe "$DIST/immerse-yourself.exe"
+          cp rust/target/release/immerse-tauri.exe "$DIST/immerse-yourself.exe"
           cp -r env_conf "$DIST/"
           cp -r sound_conf "$DIST/"
           cp -r sounds "$DIST/"
+          cp -r freesound_sounds "$DIST/"
+          cp ATTRIBUTION.md "$DIST/" 2>/dev/null || true
           echo "Built $DIST/"
           ls -lh "$DIST/"
 

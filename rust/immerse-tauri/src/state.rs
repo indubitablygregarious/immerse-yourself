@@ -83,7 +83,7 @@ use immerse_core::config::{
     get_available_times_at_path, get_time_variant_engines_at_path, has_time_variants_at_path,
     ConfigLoader, EnginesConfig, EnvironmentConfig, Metadata, SoundConfig, TimeOfDay,
 };
-use immerse_core::download_queue::{find_downloaded_file, parse_freesound_url};
+use immerse_core::download_queue::{find_downloaded_file, load_sound_manifest, parse_freesound_url};
 use immerse_core::engines::{AtmosphereEngine, LightsEngine, SoundEngine, SpotifyEngine};
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
@@ -590,7 +590,8 @@ impl AppState {
             inner.config_loader = inner.build_config_loader();
             inner.configs_by_category = inner.config_loader.load_all().unwrap_or_default();
             let cache_dir = inner.cache_dir.clone();
-            AppStateInner::generate_virtual_loop_configs(&mut inner.configs_by_category, &cache_dir);
+            let manifest = inner.atmosphere_engine.get_manifest();
+            AppStateInner::generate_virtual_loop_configs(&mut inner.configs_by_category, &cache_dir, &manifest);
             let mut categories: Vec<String> = inner.configs_by_category.keys().cloned().collect();
             categories.sort();
             inner.categories = categories;
@@ -615,7 +616,8 @@ impl AppState {
 
             // Regenerate virtual loop configs
             let cache_dir = inner.cache_dir.clone();
-            AppStateInner::generate_virtual_loop_configs(&mut inner.configs_by_category, &cache_dir);
+            let manifest = inner.atmosphere_engine.get_manifest();
+            AppStateInner::generate_virtual_loop_configs(&mut inner.configs_by_category, &cache_dir, &manifest);
 
             // Re-extract sorted category list
             let mut categories: Vec<String> = inner.configs_by_category.keys().cloned().collect();
@@ -669,9 +671,11 @@ impl AppState {
             // Regenerate virtual loop configs once new downloads complete
             if inner.needs_loop_regen && inner.atmosphere_engine.pending_downloads() == 0 {
                 let cache_dir = inner.cache_dir.clone();
+                let manifest = inner.atmosphere_engine.get_manifest();
                 AppStateInner::generate_virtual_loop_configs(
                     &mut inner.configs_by_category,
                     &cache_dir,
+                    &manifest,
                 );
                 let mut categories: Vec<String> =
                     inner.configs_by_category.keys().cloned().collect();
@@ -1010,8 +1014,28 @@ impl AppStateInner {
         // Load all configs
         let mut configs_by_category = config_loader.load_all().unwrap_or_default();
 
+        // Load sound manifest (bundled sounds) BEFORE generating virtual loop configs,
+        // so the manifest can be consulted when checking if a URL is "cached".
+        let manifest_locations: Vec<(&Path, &str)> = {
+            let mut locs: Vec<(&Path, &str)> = Vec::new();
+            if let Some(ref ucd) = user_content_dir {
+                locs.push((ucd.as_path(), "user content dir"));
+            }
+            locs.push((project_root.as_path(), "project root"));
+            locs
+        };
+        let mut sound_manifest = HashMap::new();
+        for (base_dir, label) in &manifest_locations {
+            let manifest_path = base_dir.join("freesound_sounds").join("manifest.json");
+            if manifest_path.exists() {
+                sound_manifest = load_sound_manifest(base_dir, &manifest_path);
+                tracing::info!("Loaded sound manifest from {} ({} entries)", label, sound_manifest.len());
+                break;
+            }
+        }
+
         // Generate virtual loop sound configs from atmosphere mix URLs
-        Self::generate_virtual_loop_configs(&mut configs_by_category, &cache_dir);
+        Self::generate_virtual_loop_configs(&mut configs_by_category, &cache_dir, &sound_manifest);
 
         // Extract sorted category list
         let mut categories: Vec<String> = configs_by_category.keys().cloned().collect();
@@ -1028,15 +1052,7 @@ impl AppStateInner {
         let sound_engine = Arc::new(sound_engine);
         let atmosphere_engine = Arc::new(AtmosphereEngine::new_with_cache_dir(&cache_dir));
 
-        // Load sound manifest (bundled sounds) - check user content dir first, then project root
-        let manifest_locations: Vec<(&Path, &str)> = {
-            let mut locs: Vec<(&Path, &str)> = Vec::new();
-            if let Some(ref ucd) = user_content_dir {
-                locs.push((ucd.as_path(), "user content dir"));
-            }
-            locs.push((project_root.as_path(), "project root"));
-            locs
-        };
+        // Pass the pre-loaded manifest to the atmosphere engine
         for (base_dir, label) in &manifest_locations {
             let manifest_path = base_dir.join("freesound_sounds").join("manifest.json");
             if manifest_path.exists() {
@@ -1199,6 +1215,7 @@ Content is loaded alongside built-in configs.
     fn generate_virtual_loop_configs(
         configs_by_category: &mut HashMap<String, Vec<EnvironmentConfig>>,
         cache_dir: &std::path::Path,
+        manifest: &HashMap<String, std::path::PathBuf>,
     ) {
         // First, collect all URLs that already have loop configs
         let mut existing_loop_urls: HashSet<String> = HashSet::new();
@@ -1243,8 +1260,19 @@ Content is loaded alongside built-in configs.
 
         // Filter out URLs that are not cached -- uncached sounds cannot play and
         // would appear as useless "Sound {id}" buttons.
+        // Check both the bundled sound manifest AND the writable cache directory.
         let total_before_filter = url_sources.len();
         url_sources.retain(|(url, _, _)| {
+            // Check bundled manifest first (handles URL with/without trailing slash)
+            if manifest.contains_key(url) {
+                return true;
+            }
+            let url_slash = if url.ends_with('/') { url.clone() } else { format!("{}/", url) };
+            let url_noslash = url_slash.trim_end_matches('/').to_string();
+            if manifest.contains_key(&url_slash) || manifest.contains_key(&url_noslash) {
+                return true;
+            }
+            // Fall back to checking the writable cache directory
             if let Some((creator, sound_id)) = parse_freesound_url(url) {
                 find_downloaded_file(cache_dir, &creator, &sound_id).is_some()
             } else {
@@ -1274,10 +1302,10 @@ Content is loaded alongside built-in configs.
         for (url, source_env, mix_name) in &url_sources {
             // Try to extract a display name from the cached file or mix name
             let display_name =
-                Self::get_virtual_config_display_name(url, mix_name.as_deref(), cache_dir);
+                Self::get_virtual_config_display_name(url, mix_name.as_deref(), cache_dir, manifest);
 
             // Determine sound category from keywords in the display name and cached filename
-            let category = Self::categorize_sound_by_keywords(url, &display_name, cache_dir);
+            let category = Self::categorize_sound_by_keywords(url, &display_name, cache_dir, manifest);
 
             let config = EnvironmentConfig {
                 name: display_name.clone(),
@@ -1335,6 +1363,7 @@ Content is loaded alongside built-in configs.
     /// Designed to be called cheaply from the polling path (get_active_state).
     fn refresh_stale_virtual_config_names(&mut self) {
         let cache_dir = &self.cache_dir;
+        let manifest = self.atmosphere_engine.get_manifest();
         let re = match regex::Regex::new(r"^Sound \d+$") {
             Ok(r) => r,
             Err(_) => return,
@@ -1351,7 +1380,7 @@ Content is loaded alongside built-in configs.
                     _ => continue,
                 };
                 let new_name =
-                    Self::get_virtual_config_display_name(url, None, cache_dir);
+                    Self::get_virtual_config_display_name(url, None, cache_dir, &manifest);
                 if new_name != config.name {
                     tracing::info!(
                         "Refreshed virtual config name: '{}' -> '{}'",
@@ -1374,6 +1403,7 @@ Content is loaded alongside built-in configs.
         url: &str,
         mix_name: Option<&str>,
         cache_dir: &std::path::Path,
+        manifest: &HashMap<String, std::path::PathBuf>,
     ) -> String {
         // Option 1: Use the mix name if provided
         if let Some(name) = mix_name {
@@ -1382,43 +1412,69 @@ Content is loaded alongside built-in configs.
             }
         }
 
-        // Option 2: Parse cached filename
+        // Helper closure: extract a clean display name from a filename with creator_id_ prefix
+        let extract_name = |filename: &str, prefix: &str| -> Option<String> {
+            if !filename.starts_with(prefix) {
+                return None;
+            }
+            let name_with_ext = &filename[prefix.len()..];
+            let name = name_with_ext
+                .rsplit_once('.')
+                .map(|(n, _)| n)
+                .unwrap_or(name_with_ext);
+            let clean = name.replace('_', " ");
+            let lower = clean.to_lowercase();
+            let clean = if lower.starts_with("freesound - ") {
+                clean[12..].to_string()
+            } else if lower.starts_with("freesound-") {
+                clean[10..].to_string()
+            } else {
+                clean
+            };
+            let clean = clean.trim().to_string();
+            if clean.is_empty() { None } else { Some(clean) }
+        };
+
         if let Some((creator, sound_id)) = parse_freesound_url(url) {
             let prefix = format!("{}_{}_", creator, sound_id);
+
+            // Option 2: Check bundled manifest path for filename
+            let manifest_filename = Self::manifest_filename_for_url(url, manifest);
+            if let Some(ref fname) = manifest_filename {
+                if let Some(name) = extract_name(fname, &prefix) {
+                    return name;
+                }
+            }
+
+            // Option 3: Check cached filename in writable cache dir
             if let Ok(entries) = std::fs::read_dir(cache_dir) {
                 for entry in entries.flatten() {
                     let filename = entry.file_name().to_string_lossy().to_string();
-                    if filename.starts_with(&prefix) {
-                        // Extract name part (after creator_id_)
-                        let name_with_ext = &filename[prefix.len()..];
-                        let name = name_with_ext
-                            .rsplit_once('.')
-                            .map(|(n, _)| n)
-                            .unwrap_or(name_with_ext);
-                        // Clean up: replace underscores with spaces
-                        let clean = name.replace('_', " ");
-                        // Remove "freesound - " prefix
-                        let lower = clean.to_lowercase();
-                        let clean = if lower.starts_with("freesound - ") {
-                            clean[12..].to_string()
-                        } else if lower.starts_with("freesound-") {
-                            clean[10..].to_string()
-                        } else {
-                            clean
-                        };
-                        let clean = clean.trim().to_string();
-                        if !clean.is_empty() {
-                            return clean;
-                        }
+                    if let Some(name) = extract_name(&filename, &prefix) {
+                        return name;
                     }
                 }
             }
 
-            // Fallback with sound ID
             return format!("Sound {}", sound_id);
         }
 
         "Unknown Sound".to_string()
+    }
+
+    /// Extracts the filename component from a manifest path for a given URL.
+    fn manifest_filename_for_url(url: &str, manifest: &HashMap<String, std::path::PathBuf>) -> Option<String> {
+        // Try exact match, with trailing slash, without trailing slash
+        let path = manifest.get(url)
+            .or_else(|| {
+                let with_slash = if url.ends_with('/') { url.to_string() } else { format!("{}/", url) };
+                manifest.get(&with_slash)
+            })
+            .or_else(|| {
+                let without_slash = url.trim_end_matches('/').to_string();
+                manifest.get(&without_slash)
+            })?;
+        path.file_name().map(|f| f.to_string_lossy().to_string())
     }
 
     /// Determines the sound category for a freesound URL using keyword matching.
@@ -1432,6 +1488,7 @@ Content is loaded alongside built-in configs.
         url: &str,
         display_name: &str,
         cache_dir: &std::path::Path,
+        manifest: &HashMap<String, std::path::PathBuf>,
     ) -> String {
         // Collect all text to search through (lowercased, split into words)
         let mut search_words: Vec<String> = Vec::new();
@@ -1441,25 +1498,36 @@ Content is loaded alongside built-in configs.
             search_words.push(word.to_string());
         }
 
-        // Add words from cached filename if available
+        // Helper: extract keywords from a filename with creator_id_ prefix
+        let add_filename_words = |filename: &str, prefix: &str, words: &mut Vec<String>| {
+            if filename.starts_with(prefix) {
+                let name_part = &filename[prefix.len()..];
+                let name_no_ext = name_part
+                    .rsplit_once('.')
+                    .map(|(n, _)| n)
+                    .unwrap_or(name_part);
+                for word in name_no_ext.to_lowercase().replace('_', " ").split_whitespace() {
+                    if !words.contains(&word.to_string()) {
+                        words.push(word.to_string());
+                    }
+                }
+            }
+        };
+
         if let Some((creator, sound_id)) = parse_freesound_url(url) {
             let prefix = format!("{}_{}_", creator, sound_id);
+
+            // Check bundled manifest path for filename words
+            if let Some(fname) = Self::manifest_filename_for_url(url, manifest) {
+                add_filename_words(&fname, &prefix, &mut search_words);
+            }
+
+            // Check cached filename in writable cache dir
             if let Ok(entries) = std::fs::read_dir(cache_dir) {
                 for entry in entries.flatten() {
                     let filename = entry.file_name().to_string_lossy().to_string();
                     if filename.starts_with(&prefix) {
-                        // Extract name part and split into words
-                        let name_part = &filename[prefix.len()..];
-                        let name_no_ext = name_part
-                            .rsplit_once('.')
-                            .map(|(n, _)| n)
-                            .unwrap_or(name_part);
-                        for word in name_no_ext.to_lowercase().replace('_', " ").split_whitespace()
-                        {
-                            if !search_words.contains(&word.to_string()) {
-                                search_words.push(word.to_string());
-                            }
-                        }
+                        add_filename_words(&filename, &prefix, &mut search_words);
                         break;
                     }
                 }

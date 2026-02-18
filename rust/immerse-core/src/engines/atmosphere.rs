@@ -234,6 +234,11 @@ impl AtmosphereEngine {
         self.download_queue.manifest_size()
     }
 
+    /// Returns a snapshot of the current manifest (URL → absolute path).
+    pub fn get_manifest(&self) -> HashMap<String, PathBuf> {
+        self.download_queue.get_manifest()
+    }
+
     /// Sets whether on-demand downloads are enabled.
     pub fn set_downloads_enabled(&self, enabled: bool) {
         self.download_queue.set_downloads_enabled(enabled);

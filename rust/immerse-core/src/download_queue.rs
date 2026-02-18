@@ -207,6 +207,11 @@ impl DownloadQueue {
         self.manifest.read().unwrap().len()
     }
 
+    /// Returns a snapshot of the current manifest (URL → absolute path).
+    pub fn get_manifest(&self) -> HashMap<String, PathBuf> {
+        self.manifest.read().unwrap().clone()
+    }
+
     /// Sets whether on-demand downloads are enabled.
     pub fn set_downloads_enabled(&self, enabled: bool) {
         let mut flag = self.downloads_enabled.write().unwrap();
@@ -471,6 +476,29 @@ pub fn find_downloaded_file(cache_dir: &Path, creator: &str, sound_id: &str) -> 
         }
     }
     None
+}
+
+/// Loads a sound manifest file and returns a map of freesound URLs to absolute file paths.
+///
+/// This is a standalone function (not tied to DownloadQueue) so it can be called early
+/// during initialization, before engines are created.
+pub fn load_sound_manifest(base_dir: &Path, manifest_path: &Path) -> HashMap<String, PathBuf> {
+    let mut result = HashMap::new();
+    let contents = match std::fs::read_to_string(manifest_path) {
+        Ok(c) => c,
+        Err(_) => return result,
+    };
+    let raw: HashMap<String, String> = match serde_json::from_str(&contents) {
+        Ok(m) => m,
+        Err(_) => return result,
+    };
+    for (url, rel_path) in raw {
+        let abs_path = base_dir.join(&rel_path);
+        if abs_path.exists() {
+            result.insert(url, abs_path);
+        }
+    }
+    result
 }
 
 /// Checks if a URL is a valid freesound.org URL.

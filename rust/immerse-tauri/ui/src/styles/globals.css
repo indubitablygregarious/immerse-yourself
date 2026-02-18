@@ -777,18 +777,19 @@ body {
 
 /* Environment Description Box - positioned BELOW the button like Python */
 .env-description-box {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   background: rgba(100, 100, 100, 0.1);
   border: 1px solid rgba(100, 100, 100, 0.2);
   border-radius: 4px;
-  padding: 4px 8px;
-  margin-top: 4px;
-  max-height: 2.5em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
+  padding: 6px 10px;
+  margin-top: 6px;
+  line-height: 1.4;
   text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Feature Badges - straddle the bottom edge of the button (vertically centered on edge) */

@@ -70,31 +70,41 @@ make check      # Check code compiles without building (uses Rust 1.89 wrapper)
 make run        # Run pre-built application (alias: make d, make desktop)
 make trex       # Build and launch application
 make clean      # Remove build artifacts
-make release         # Cut a desktop release (bump version, tag, push, monitor CI)
-make release-dry-run # Preview what a release would do without doing it
+make release             # Cut a release — builds desktop + iOS (bump, tag, push, monitor)
+make release-dry-run     # Preview what a release would do
+make release-ios         # iOS TestFlight only (bump, push to main, no tag)
+make release-ios-dry-run # Preview what an iOS-only release would do
 ```
 
 Use `RELEASE_ARGS` to pass options: `make release RELEASE_ARGS="--minor"`, `make release RELEASE_ARGS="--major"`, or `make release RELEASE_ARGS="--version 1.0.0"`.
 
-### Desktop Builds & Releases
+### Releases (Desktop + iOS)
 
-Workflow: `.github/workflows/desktop-build.yml`
+Both platforms read from the same version in `tauri.conf.json`. A single `make release` triggers both:
+- The `v*` tag triggers `desktop-build.yml` (Linux, macOS, Windows binaries + GitHub Release)
+- The push to `main` triggers `ios-build.yml` (TestFlight build)
 
-**Triggers:**
+For iOS-only iterations (no desktop release), use `make release-ios` — it pushes to main without a tag.
+
+**Desktop workflow:** `.github/workflows/desktop-build.yml`
 - Push to `main` — CI build (compile + test, no release)
 - Push `v*` tag — full build + GitHub Release with platform binaries
+- Platform jobs: Linux (tar.gz), macOS (DMG), Windows (zip)
 
-**Platform jobs:** Linux (tar.gz on ubuntu-22.04), macOS (DMG on macos-latest), Windows (zip on windows-latest)
+**iOS workflow:** `.github/workflows/ios-build.yml`
+- Triggers on push to `main` when `rust/immerse-tauri/tauri.conf.json` changes
 
-**Release job:** Downloads all 3 platform artifacts and creates a GitHub Release with permanent download links.
+**Full release flow** (`make release`):
+1. Script bumps version in `tauri.conf.json`, commits, creates annotated `v*` tag, pushes
+2. Tag triggers desktop build; push triggers iOS build
+3. Script monitors the desktop build and reports the release URL when done
 
-**Release flow:**
-1. Run `make release` (or `python3 scripts/desktop-release.py`)
-2. Script bumps version in `tauri.conf.json`, commits, creates annotated `v*` tag, pushes
-3. Tag push triggers the workflow — builds all 3 platforms, then creates a GitHub Release
-4. Script monitors CI and reports the release URL when done
+**iOS-only flow** (`make release-ios`):
+1. Script bumps version, commits, pushes to main (no tag)
+2. Only `ios-build.yml` triggers
+3. Script monitors the iOS build
 
-Script options: `--minor`, `--major`, `--version X.Y.Z`, `--dry-run`, `--no-monitor`, `--monitor-only vX.Y.Z`.
+Script options: `--minor`, `--major`, `--version X.Y.Z`, `--dry-run`, `--no-monitor`, `--monitor-only vX.Y.Z`, `--ios-only`.
 
 ### Git Hooks
 

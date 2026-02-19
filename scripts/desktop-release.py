@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Cut a desktop release: bump version, tag, push, and monitor CI build.
+"""Cut a release: bump version, tag, push, and monitor CI build.
+
+Supports both desktop (full release with tag) and iOS-only (TestFlight) releases.
 
 Usage:
-    python3 scripts/desktop-release.py              # bump patch (0.3.17 -> 0.3.18)
-    python3 scripts/desktop-release.py --minor      # bump minor (0.3.17 -> 0.4.0)
-    python3 scripts/desktop-release.py --major      # bump major (0.3.17 -> 1.0.0)
+    python3 scripts/desktop-release.py              # bump patch, tag, push (desktop + iOS)
+    python3 scripts/desktop-release.py --minor      # bump minor version
+    python3 scripts/desktop-release.py --major      # bump major version
     python3 scripts/desktop-release.py --version 1.0.0  # explicit version
     python3 scripts/desktop-release.py --dry-run    # show what would happen
+    python3 scripts/desktop-release.py --ios-only   # iOS TestFlight only (no tag, no desktop build)
     python3 scripts/desktop-release.py --monitor-only v0.3.17  # just watch an existing run
 """
 
@@ -19,6 +22,7 @@ import time
 
 TAURI_CONF = "rust/immerse-tauri/tauri.conf.json"
 WORKFLOW = "desktop-build.yml"
+IOS_WORKFLOW = "ios-build.yml"
 POLL_INTERVAL = 30  # seconds between status checks
 POLL_TIMEOUT = 40 * 60  # 40 minutes max wait
 
@@ -104,20 +108,33 @@ def check_tag_exists(tag):
     return None
 
 
-def create_release(repo_root, new_version, dry_run=False):
-    """Bump version, commit, tag, and push."""
+def create_release(repo_root, new_version, dry_run=False, ios_only=False):
+    """Bump version, commit, tag, and push.
+
+    If ios_only=True, skips tag creation and pushes without --follow-tags.
+    The push to main triggers ios-build.yml without triggering desktop-build.yml.
+    """
     tag = f"v{new_version}"
 
-    existing = check_tag_exists(tag)
-    if existing:
-        print(f"ERROR: {existing}")
-        sys.exit(1)
+    if not ios_only:
+        existing = check_tag_exists(tag)
+        if existing:
+            print(f"ERROR: {existing}")
+            sys.exit(1)
+
+    if ios_only:
+        commit_msg = f"release {tag}: iOS TestFlight"
+    else:
+        commit_msg = f"release {tag}: desktop build"
 
     if dry_run:
         print(f"[DRY RUN] Would update {TAURI_CONF}: version -> {new_version}")
-        print(f"[DRY RUN] Would commit: 'release {tag}: desktop build'")
-        print(f"[DRY RUN] Would create tag: {tag}")
-        print(f"[DRY RUN] Would push commit + tag to origin")
+        print(f"[DRY RUN] Would commit: '{commit_msg}'")
+        if not ios_only:
+            print(f"[DRY RUN] Would create tag: {tag}")
+            print("[DRY RUN] Would push commit + tag to origin")
+        else:
+            print("[DRY RUN] Would push commit to origin (no tag)")
         return tag
 
     # Update version
@@ -126,23 +143,35 @@ def create_release(repo_root, new_version, dry_run=False):
 
     # Commit
     run(f"git add {TAURI_CONF}")
-    run(f'git commit -m "release {tag}: desktop build"')
-    print(f"Committed version bump")
+    run(f'git commit -m "{commit_msg}"')
+    print("Committed version bump")
 
-    # Tag
-    run(f'git tag -a {tag} -m "Desktop release {tag}"')
-    print(f"Created tag {tag}")
+    if not ios_only:
+        # Tag
+        run(f'git tag -a {tag} -m "Desktop release {tag}"')
+        print(f"Created tag {tag}")
 
-    # Push commit and tag together
-    run("git push origin main --follow-tags")
-    print(f"Pushed commit + tag to origin")
+        # Push commit and tag together
+        run("git push origin main --follow-tags")
+        print("Pushed commit + tag to origin")
+    else:
+        # Push commit only (no tag — triggers ios-build.yml but not desktop-build.yml)
+        run("git push origin main")
+        print("Pushed commit to origin (iOS only, no tag)")
 
     return tag
 
 
-def monitor_build(tag, timeout=POLL_TIMEOUT):
-    """Poll GitHub Actions until the workflow completes or times out."""
-    print(f"\nMonitoring desktop build for {tag}...")
+def monitor_build(tag, timeout=POLL_TIMEOUT, workflow=WORKFLOW, branch=None):
+    """Poll GitHub Actions until the workflow completes or times out.
+
+    branch: which branch to search for runs. Defaults to tag for desktop
+    builds, "main" for iOS builds.
+    """
+    label = "iOS" if workflow == IOS_WORKFLOW else "desktop"
+    if branch is None:
+        branch = "main" if workflow == IOS_WORKFLOW else tag
+    print(f"\nMonitoring {label} build for {tag}...")
     print(f"(checking every {POLL_INTERVAL}s, timeout {timeout // 60}min)\n")
 
     # Wait for the run to appear
@@ -150,19 +179,19 @@ def monitor_build(tag, timeout=POLL_TIMEOUT):
     for attempt in range(6):
         time.sleep(10 if attempt == 0 else POLL_INTERVAL)
         result = run(
-            f"gh run list --workflow={WORKFLOW} --branch={tag} --limit=1 --json databaseId,status,conclusion,headBranch",
+            f"gh run list --workflow={workflow} --branch={branch} --limit=1 --json databaseId,status,conclusion,headBranch",
             check=False,
         )
         if not result or result == "[]":
-            # Also try matching by tag in event
+            # Also try matching by recent runs
             result = run(
-                f"gh run list --workflow={WORKFLOW} --limit=5 --json databaseId,status,conclusion,headBranch,event",
+                f"gh run list --workflow={workflow} --limit=5 --json databaseId,status,conclusion,headBranch,event",
                 check=False,
             )
             if result:
                 runs = json.loads(result)
                 for r in runs:
-                    if r.get("headBranch") == tag or r.get("status") in ("queued", "in_progress"):
+                    if r.get("headBranch") == branch or r.get("status") in ("queued", "in_progress"):
                         run_id = r["databaseId"]
                         break
             if run_id:
@@ -176,8 +205,8 @@ def monitor_build(tag, timeout=POLL_TIMEOUT):
 
     if not run_id:
         print("WARNING: Could not find workflow run. Check manually:")
-        print(f"  gh run list --workflow={WORKFLOW}")
-        url = run(f"gh browse --no-browser -n 2>/dev/null || echo ''", check=False)
+        print(f"  gh run list --workflow={workflow}")
+        run("gh browse --no-browser -n 2>/dev/null || echo ''", check=False)
         return False
 
     # Show the run URL
@@ -216,13 +245,14 @@ def monitor_build(tag, timeout=POLL_TIMEOUT):
         if status == "completed":
             print()
             if conclusion == "success":
-                release_url = run(
-                    f"gh release view {tag} --json url --jq .url 2>/dev/null",
-                    check=False,
-                )
-                print(f"BUILD SUCCEEDED")
-                if release_url:
-                    print(f"Release: {release_url}")
+                print("BUILD SUCCEEDED")
+                if workflow != IOS_WORKFLOW:
+                    release_url = run(
+                        f"gh release view {tag} --json url --jq .url 2>/dev/null",
+                        check=False,
+                    )
+                    if release_url:
+                        print(f"Release: {release_url}")
                 return True
             else:
                 print(f"BUILD FAILED (conclusion: {conclusion})")
@@ -237,7 +267,7 @@ def monitor_build(tag, timeout=POLL_TIMEOUT):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Cut a desktop release")
+    parser = argparse.ArgumentParser(description="Cut a release (desktop + iOS, or iOS only)")
     bump_group = parser.add_mutually_exclusive_group()
     bump_group.add_argument("--patch", action="store_true", default=True, help="Bump patch version (default)")
     bump_group.add_argument("--minor", action="store_true", help="Bump minor version")
@@ -246,6 +276,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Show what would happen without doing it")
     parser.add_argument("--no-monitor", action="store_true", help="Don't wait for CI build to finish")
     parser.add_argument("--monitor-only", type=str, metavar="TAG", help="Just monitor an existing tag's build (e.g., v0.3.17)")
+    parser.add_argument("--ios-only", action="store_true", help="iOS TestFlight release only (no tag, no desktop build)")
 
     args = parser.parse_args()
 
@@ -277,29 +308,36 @@ def main():
         new_version = bump_version(current, "patch")
 
     tag = f"v{new_version}"
+    mode = "iOS TestFlight" if args.ios_only else "desktop + iOS"
     print(f"Current version: {current}")
     print(f"New version:     {new_version} ({tag})")
+    print(f"Mode:            {mode}")
     print()
 
     if not args.dry_run:
-        confirm = input(f"Create release {tag}? [y/N] ").strip().lower()
+        if args.ios_only:
+            confirm = input(f"Push iOS release {tag} to main (no tag)? [y/N] ").strip().lower()
+        else:
+            confirm = input(f"Create release {tag}? [y/N] ").strip().lower()
         if confirm != "y":
             print("Aborted.")
             sys.exit(0)
 
-    tag = create_release(repo_root, new_version, dry_run=args.dry_run)
+    tag = create_release(repo_root, new_version, dry_run=args.dry_run, ios_only=args.ios_only)
 
     if args.dry_run:
         print("\nDry run complete. No changes made.")
         return
 
+    workflow = IOS_WORKFLOW if args.ios_only else WORKFLOW
+
     if args.no_monitor:
         print(f"\nRelease {tag} pushed. Monitor with:")
         print(f"  python3 scripts/desktop-release.py --monitor-only {tag}")
-        print(f"  gh run list --workflow={WORKFLOW}")
+        print(f"  gh run list --workflow={workflow}")
         return
 
-    success = monitor_build(tag)
+    success = monitor_build(tag, workflow=workflow)
     sys.exit(0 if success else 1)
 
 

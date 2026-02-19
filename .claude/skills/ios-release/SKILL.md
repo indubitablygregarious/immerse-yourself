@@ -1,59 +1,25 @@
 ---
 name: ios-release
-description: Bump the iOS app version, commit, push to main, and verify the GitHub Actions iOS build starts. Use when cutting a new iOS/TestFlight build.
-allowed-tools: Bash(git *), Bash(gh *), Read, Edit
+description: Cut an iOS-only TestFlight release — bumps version, pushes to main (no tag), monitors the iOS build workflow. Use when cutting a new iOS/TestFlight build without a desktop release.
+allowed-tools: Bash(python3 scripts/desktop-release.py *), Bash(make release-ios*), Bash(gh run list *), Bash(gh run view *)
 ---
 
-# iOS Release - Cut a New Build
+# iOS Release - Cut a TestFlight Build
 
-Bump the version in `tauri.conf.json`, commit, push, and verify the GitHub Actions iOS build workflow starts.
+Delegate to the unified release script with `--ios-only`. This bumps the version in `tauri.conf.json`, commits, pushes to main **without** creating a tag (so only `ios-build.yml` triggers, not `desktop-build.yml`), and monitors the CI build.
 
 ## Process
 
-### Step 1: Ensure correct branch and clean state
+1. Run `make release-ios` (or `python3 scripts/desktop-release.py --ios-only`) from the repo root.
+2. The script handles: preflight checks, version bump, commit, push, and CI monitoring.
+3. Report the build status to the user when it completes.
 
-1. Check the current branch with `git branch --show-current`.
-2. If not on `main`, **stop and tell the user** this skill must be run from the `main` branch (since the iOS build workflow only triggers on pushes to `main`).
-3. Run `git status` to check for uncommitted changes.
-4. If there are uncommitted changes, commit them first:
-   a. Run `git diff --stat` and `git log --oneline -5` to understand the changes and commit style.
-   b. Stage all modified/new files with `git add` (list specific files, not `-A`).
-   c. Write a descriptive commit message summarizing the changes.
-   d. Commit the changes.
-5. Run `git pull` to make sure the branch is up to date with the remote.
+## Options
 
-### Step 2: Read current version
+- **Dry run**: `make release-ios-dry-run` to preview without changes.
+- **Version bump**: Pass via `RELEASE_ARGS`, e.g., `make release-ios RELEASE_ARGS="--minor"`.
+- **Skip monitoring**: `make release-ios RELEASE_ARGS="--no-monitor"`.
 
-1. Read `rust/immerse-tauri/tauri.conf.json`.
-2. Extract the current `"version"` value (e.g., `"0.3.1"`).
-3. Display it to the user.
+## When to Use
 
-### Step 3: Bump the version
-
-Increment the **patch** version by 1 (e.g., `0.3.1` -> `0.3.2`).
-
-Use the Edit tool to update the `"version"` field in `rust/immerse-tauri/tauri.conf.json`.
-
-### Step 4: Commit and push
-
-1. Stage only the version file:
-   ```bash
-   git add rust/immerse-tauri/tauri.conf.json
-   ```
-2. Commit with a clear message:
-   ```bash
-   git commit -m "bump iOS version to X.Y.Z for TestFlight"
-   ```
-3. Push to main:
-   ```bash
-   git push
-   ```
-
-### Step 5: Verify the GitHub Actions workflow started
-
-1. Wait 5 seconds for GitHub to register the push.
-2. Run:
-   ```bash
-   gh run list --workflow=ios-build.yml --limit=1
-   ```
-3. Report the status and run URL to the user so they can monitor the build.
+Use `make release-ios` for iOS-only TestFlight iterations. Use `make release` when you want both desktop and iOS builds (the tag triggers desktop, the push triggers iOS).

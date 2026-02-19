@@ -1,4 +1,4 @@
-.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run test-windows test-windows-status test-windows-screenshot
+.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
 
 help:
 	@echo "Immerse Yourself - Development Commands"
@@ -41,14 +41,21 @@ help:
 	@echo "  make test-windows-screenshot   - Download screenshot from latest completed run"
 	@echo ""
 	@echo "Release:"
-	@echo "  make release         - Cut a desktop release (bump patch, tag, push, monitor CI)"
-	@echo "  make release-dry-run - Show what a release would do without doing it"
+	@echo "  make release             - Cut a release (bump patch, tag, push — builds desktop + iOS)"
+	@echo "  make release-dry-run     - Show what a release would do without doing it"
+	@echo "  make release-ios         - iOS TestFlight only (bump patch, push to main, no tag)"
+	@echo "  make release-ios-dry-run - Show what an iOS-only release would do"
 	@echo ""
 	@echo "Setup:"
 	@echo "  make setup           - Install Tauri CLI + configure git hooks"
 	@echo ""
 	@echo "Maintenance:"
+	@echo "  make lint            - Lint Python scripts with ruff"
 	@echo "  make clean           - Remove build artifacts"
+
+lint:
+	@test -f .venv/bin/ruff || (echo "ruff not found. Run: python3 -m venv .venv && .venv/bin/pip3 install ruff" && exit 1)
+	.venv/bin/ruff check scripts/ tests/e2e/
 
 clean:
 	rm -rf rust/target 2>/dev/null || true
@@ -258,10 +265,12 @@ demo-record: demo-build
 demo: demo-record
 
 # ============================================================================
-# Desktop Release
+# Releases (Desktop + iOS)
 # ============================================================================
-# Bumps the version in tauri.conf.json, creates a git tag, pushes to origin,
-# and monitors the GitHub Actions desktop build workflow.
+# `make release`     — Bumps version, creates a git tag, pushes to origin.
+#                      The tag triggers desktop-build.yml; the push triggers ios-build.yml.
+# `make release-ios` — Bumps version, pushes to main WITHOUT a tag.
+#                      Only triggers ios-build.yml (TestFlight iteration).
 # Pass RELEASE_ARGS for options: --minor, --major, --version X.Y.Z, --no-monitor
 
 RELEASE_ARGS ?=
@@ -271,6 +280,12 @@ release:
 
 release-dry-run:
 	python3 scripts/desktop-release.py --dry-run $(RELEASE_ARGS)
+
+release-ios:
+	python3 scripts/desktop-release.py --ios-only $(RELEASE_ARGS)
+
+release-ios-dry-run:
+	python3 scripts/desktop-release.py --ios-only --dry-run $(RELEASE_ARGS)
 
 # ============================================================================
 # Windows Smoke Test (CI-based, real Windows)

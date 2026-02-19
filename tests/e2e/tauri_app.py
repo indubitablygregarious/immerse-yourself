@@ -147,7 +147,7 @@ class TauriApp:
                         self._connect_ws()
                         return True
                     else:
-                        print(f"[TauriApp] Inspector page found but no targets yet")
+                        print("[TauriApp] Inspector page found but no targets yet")
             except Exception as e:
                 if attempt < 14:
                     pass  # Retry silently
@@ -466,7 +466,7 @@ class TauriApp:
             active_cat = self.evaluate_js(
                 "document.querySelector('.category-item.active')"
                 "?.closest('[data-category]')?.dataset?.category ?? null")
-            print(f"[TauriApp] === Debug State ===")
+            print("[TauriApp] === Debug State ===")
             print(f"  Category header: {header}")
             print(f"  Active sidebar category: {active_cat}")
             print(f"  Now playing: {now_playing}")

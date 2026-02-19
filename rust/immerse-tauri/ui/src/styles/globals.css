@@ -1714,11 +1714,11 @@ body {
     "footer"
     "statusbar";
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app.mobile-mode .status-bar {
   padding: 0.25rem 0.75rem;
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
   font-size: 0.625rem;
   flex-wrap: wrap;
   gap: 0.25rem;

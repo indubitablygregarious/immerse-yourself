@@ -2410,10 +2410,19 @@ Content is loaded alongside built-in configs.
     // Settings Methods
     // ========================================================================
 
+    /// Returns the writable directory for settings files.
+    /// On iOS the project root is inside the read-only app bundle, so we use
+    /// user_content_dir (the platform app-data directory) instead.
+    /// On desktop, falls back to project_root for backwards compatibility.
+    fn settings_dir(&self) -> &Path {
+        self.user_content_dir.as_deref().unwrap_or(&self.project_root)
+    }
+
     /// Gets the current Spotify configuration.
     fn get_spotify_config(&self) -> SpotifyConfig {
-        let config_path = self.project_root.join(".spotify.ini");
-        let settings_path = self.project_root.join("settings.ini");
+        let settings_dir = self.settings_dir();
+        let config_path = settings_dir.join(".spotify.ini");
+        let settings_path = settings_dir.join("settings.ini");
 
         let mut config = SpotifyConfig::default();
         config.redirect_uri = "http://127.0.0.1:8888/callback".to_string();
@@ -2452,8 +2461,9 @@ Content is loaded alongside built-in configs.
 
     /// Saves the Spotify configuration.
     fn save_spotify_config(&self, config: SpotifyConfig) -> Result<(), String> {
-        let config_path = self.project_root.join(".spotify.ini");
-        let settings_path = self.project_root.join("settings.ini");
+        let settings_dir = self.settings_dir();
+        let config_path = settings_dir.join(".spotify.ini");
+        let settings_path = settings_dir.join("settings.ini");
 
         // Save credentials to .spotify.ini
         let content = format!(
@@ -2471,7 +2481,7 @@ Content is loaded alongside built-in configs.
 
     /// Gets the current WIZ bulb configuration.
     fn get_wizbulb_config(&self) -> WizBulbConfig {
-        let config_path = self.project_root.join(".wizbulb.ini");
+        let config_path = self.settings_dir().join(".wizbulb.ini");
 
         let mut config = WizBulbConfig::default();
 
@@ -2492,7 +2502,7 @@ Content is loaded alongside built-in configs.
 
     /// Saves the WIZ bulb configuration.
     fn save_wizbulb_config(&self, config: WizBulbConfig) -> Result<(), String> {
-        let config_path = self.project_root.join(".wizbulb.ini");
+        let config_path = self.settings_dir().join(".wizbulb.ini");
 
         let content = format!(
             "[DEFAULT]\nbackdrop_bulbs = {}\noverhead_bulbs = {}\nbattlefield_bulbs = {}\n",
@@ -2506,7 +2516,7 @@ Content is loaded alongside built-in configs.
 
     /// Gets the current app settings.
     fn get_app_settings(&self) -> AppSettings {
-        let settings_path = self.project_root.join("settings.ini");
+        let settings_path = self.settings_dir().join("settings.ini");
 
         let mut settings = AppSettings::default();
 
@@ -2529,7 +2539,7 @@ Content is loaded alongside built-in configs.
 
     /// Saves the app settings.
     fn save_app_settings(&self, settings: AppSettings, atmosphere_engine: &Arc<AtmosphereEngine>) -> Result<(), String> {
-        let settings_path = self.project_root.join("settings.ini");
+        let settings_path = self.settings_dir().join("settings.ini");
 
         self.update_settings_ini(&settings_path, "downloads", "ignore_ssl_errors",
             if settings.ignore_ssl_errors { "true" } else { "false" })?;

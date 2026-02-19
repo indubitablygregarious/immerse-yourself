@@ -952,7 +952,7 @@ impl AppState {
     /// Saves the WIZ bulb configuration.
     pub fn save_wizbulb_config(&self, config: WizBulbConfig) -> Result<(), String> {
         self.runtime.block_on(async {
-            let inner = self.inner.lock().await;
+            let mut inner = self.inner.lock().await;
             inner.save_wizbulb_config(config)
         })
     }
@@ -1081,10 +1081,16 @@ impl AppStateInner {
             tracing::info!("Downloads enabled: {}", downloads_enabled);
         }
 
+        // Settings files live in user_content_dir (writable) when available,
+        // falling back to project_root (desktop dev).  On iOS the project root
+        // is inside the read-only app bundle.
+        let settings_dir = user_content_dir.as_deref().unwrap_or(&project_root);
+
         // Try to load lights engine from config
-        let lights_engine = if project_root.join(".wizbulb.ini").exists() {
+        let wizbulb_path = settings_dir.join(".wizbulb.ini");
+        let lights_engine = if wizbulb_path.exists() {
             match LightsEngine::from_config_file(
-                project_root.join(".wizbulb.ini").to_str().unwrap(),
+                wizbulb_path.to_str().unwrap(),
             ) {
                 Ok(engine) => {
                     tracing::info!("Loaded WIZ bulb configuration");
@@ -1101,12 +1107,13 @@ impl AppStateInner {
         };
 
         // Try to load Spotify engine
-        let spotify_engine = if project_root.join(".spotify.ini").exists() {
+        let spotify_ini_path = settings_dir.join(".spotify.ini");
+        let spotify_engine = if spotify_ini_path.exists() {
             match immerse_core::engines::SpotifyCredentials::from_config_file(
-                project_root.join(".spotify.ini").to_str().unwrap(),
+                spotify_ini_path.to_str().unwrap(),
             ) {
                 Ok(creds) if creds.is_configured() => {
-                    let cache_path = project_root.join(".cache");
+                    let cache_path = settings_dir.join(".cache");
                     let engine = SpotifyEngine::new(creds, cache_path);
                     tracing::info!("Loaded Spotify configuration");
                     Some(Arc::new(Mutex::new(engine)))
@@ -2500,8 +2507,8 @@ Content is loaded alongside built-in configs.
         config
     }
 
-    /// Saves the WIZ bulb configuration.
-    fn save_wizbulb_config(&self, config: WizBulbConfig) -> Result<(), String> {
+    /// Saves the WIZ bulb configuration and reinitializes the lights engine.
+    fn save_wizbulb_config(&mut self, config: WizBulbConfig) -> Result<(), String> {
         let config_path = self.settings_dir().join(".wizbulb.ini");
 
         let content = format!(
@@ -2509,6 +2516,26 @@ Content is loaded alongside built-in configs.
             config.backdrop_bulbs, config.overhead_bulbs, config.battlefield_bulbs
         );
         std::fs::write(&config_path, content).map_err(|e| format!("Failed to save .wizbulb.ini: {}", e))?;
+
+        // Reinitialize the lights engine so changes take effect immediately
+        let has_bulbs = !config.backdrop_bulbs.is_empty()
+            || !config.overhead_bulbs.is_empty()
+            || !config.battlefield_bulbs.is_empty();
+
+        if has_bulbs {
+            match LightsEngine::from_config_file(config_path.to_str().unwrap()) {
+                Ok(engine) => {
+                    tracing::info!("Reloaded lights engine with new bulb configuration");
+                    self.lights_engine = Some(Arc::new(Mutex::new(engine)));
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to reload lights engine: {}", e);
+                }
+            }
+        } else {
+            tracing::info!("No bulbs configured, disabling lights engine");
+            self.lights_engine = None;
+        }
 
         tracing::info!("Saved WIZ bulb configuration");
         Ok(())

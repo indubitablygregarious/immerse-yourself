@@ -1,4 +1,4 @@
-.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run
+.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run test-windows test-windows-status test-windows-screenshot
 
 help:
 	@echo "Immerse Yourself - Development Commands"
@@ -33,6 +33,12 @@ help:
 	@echo "  make demo-build      - Build the demo recording Docker image"
 	@echo "  make demo-record     - Record full demo (screen + camera)"
 	@echo "  make demo            - Alias for demo-record"
+	@echo ""
+	@echo "Windows Smoke Test (CI):"
+	@echo "  make test-windows              - Trigger smoke test on GitHub Actions (real Windows)"
+	@echo "  make test-windows VERSION=TAG  - Test a specific release version"
+	@echo "  make test-windows-status       - Check smoke test run status"
+	@echo "  make test-windows-screenshot   - Download screenshot from latest completed run"
 	@echo ""
 	@echo "Release:"
 	@echo "  make release         - Cut a desktop release (bump patch, tag, push, monitor CI)"
@@ -265,3 +271,39 @@ release:
 
 release-dry-run:
 	python3 scripts/desktop-release.py --dry-run $(RELEASE_ARGS)
+
+# ============================================================================
+# Windows Smoke Test (CI-based, real Windows)
+# ============================================================================
+# Launches the Windows build on a GitHub Actions windows-latest runner,
+# verifies it starts, and captures a screenshot.
+# Usage: make test-windows [VERSION=v0.3.24]
+
+VERSION ?=
+
+test-windows:
+	@echo "Triggering Windows smoke test on GitHub Actions..."
+	@if [ -n "$(VERSION)" ]; then \
+		gh workflow run windows-smoke-test.yml -f version=$(VERSION); \
+		echo "Testing version: $(VERSION)"; \
+	else \
+		gh workflow run windows-smoke-test.yml; \
+		echo "Testing latest release"; \
+	fi
+	@echo ""
+	@echo "Monitor progress:"
+	@echo "  make test-windows-status"
+	@echo "  make test-windows-screenshot"
+
+test-windows-status:
+	@gh run list --workflow=windows-smoke-test.yml --limit 3
+
+test-windows-screenshot:
+	@echo "Downloading latest smoke test screenshot..."
+	@RUN_ID=$$(gh run list --workflow=windows-smoke-test.yml --status=completed --limit 1 --json databaseId --jq '.[0].databaseId'); \
+	if [ -z "$$RUN_ID" ]; then \
+		echo "No completed smoke test runs found."; \
+		exit 1; \
+	fi; \
+	gh run download $$RUN_ID --dir windows-smoke-test-output/; \
+	echo "Screenshot downloaded to windows-smoke-test-output/"

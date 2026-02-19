@@ -31,10 +31,10 @@ graph TD
 **IMPORTANT**: The system default is Rust 1.75, but Tauri requires Rust 1.89. Never run `cargo build`, `cargo test`, or `cargo check` directly -- they will fail with version errors. Always use the Makefile targets from the project root:
 
 ```bash
-make tauri-dev      # Start Tauri dev server with hot reload
-make tauri-build    # Build production Tauri application
-make tauri-test     # Run Rust tests for both crates
-make tauri-check    # Type-check without building
+make dev        # Start Tauri dev server with hot reload
+make build      # Build production Tauri application
+make test       # Run Rust tests for both crates
+make check      # Type-check without building
 ```
 
 These targets create a wrapper that uses the correct Rust toolchain version.

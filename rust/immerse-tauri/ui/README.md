@@ -136,7 +136,7 @@ npm run dev
 For the full Tauri application with both frontend and Rust backend, use the Makefile from the project root:
 
 ```bash
-make tauri-dev
+make dev
 ```
 
 ## Type Checking

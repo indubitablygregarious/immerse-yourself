@@ -17,6 +17,9 @@ make test
 # Rust type-check
 make check
 
+# Python lint (scripts/ and tests/e2e/)
+make lint
+
 # TypeScript type-check
 cd rust/immerse-tauri/ui && npx tsc --noEmit
 
@@ -25,4 +28,7 @@ make e2e
 
 # Capture project screenshot
 make screenshot
+
+# Windows smoke test (GitHub Actions)
+make test-windows
 ```

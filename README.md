@@ -200,13 +200,20 @@ make run        # Run pre-built binary
 make test       # Run Rust tests
 make check      # Type-check without building
 make clean      # Remove build artifacts
-make release         # Cut a desktop release (bump version, tag, push, monitor CI)
-make release-dry-run # Preview what a release would do
+make release             # Cut a release — builds desktop + iOS (bump, tag, push, monitor)
+make release-dry-run     # Preview what a release would do
+make release-ios         # iOS TestFlight only (bump, push to main, no tag)
+make release-ios-dry-run # Preview what an iOS-only release would do
+make lint                # Lint Python scripts with ruff
 ```
 
-### Desktop Releases
+### Releases
 
-The project includes a 3-platform CI build (`.github/workflows/desktop-build.yml`) that produces Linux, macOS, and Windows binaries. Pushing a `v*` tag creates a GitHub Release with all platform binaries attached. Use `make release` to automate the full flow (version bump, tag, push, CI monitoring).
+Both desktop and iOS platforms read from the same version in `tauri.conf.json`. A single `make release` triggers both:
+- The `v*` tag triggers `desktop-build.yml` — builds Linux, macOS, and Windows binaries, creates a GitHub Release
+- The push to `main` triggers `ios-build.yml` — builds and uploads to TestFlight
+
+For iOS-only iterations (no desktop release), use `make release-ios` — it pushes to main without a tag.
 
 ### iOS Builds (macOS only)
 
@@ -215,6 +222,15 @@ make ios-setup   # Install prerequisites
 make ios-dev     # Run on iOS Simulator with hot reload
 make ios-build   # Build for iOS (debug)
 make ios-release # Build release IPA for TestFlight
+```
+
+### Windows Smoke Test
+
+```bash
+make test-windows              # Trigger smoke test on GitHub Actions (real Windows)
+make test-windows VERSION=TAG  # Test a specific release version
+make test-windows-status       # Check smoke test run status
+make test-windows-screenshot   # Download screenshot from latest completed run
 ```
 
 ## Project Structure
@@ -237,8 +253,10 @@ immerse-yourself/
 ├── env_conf/                   # Environment YAML configs
 ├── sound_conf/                 # Sound variation collections
 ├── sounds/                     # Local sound effect files
+├── scripts/                    # Release automation (desktop-release.py)
+├── .github/workflows/          # CI/CD (desktop-build, ios-build, windows-smoke-test)
 ├── devlog/                     # Development diary
-├── tests/                      # E2E tests
+├── tests/                      # E2E tests and screenshot automation
 ├── Makefile                    # Build commands (always use this)
 └── CLAUDE.md                   # Development guidance for Claude Code
 ```
@@ -269,7 +287,7 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run `make check` and `make test`
+4. Run `make check`, `make test`, and `make lint`
 5. Submit a pull request
 
 ## Credits

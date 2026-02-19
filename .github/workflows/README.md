@@ -1,8 +1,71 @@
 # CI/CD Workflows
 
+## Overview
+
+Three workflows automate building, releasing, and testing across all platforms:
+
+| Workflow | File | Trigger | Purpose |
+|----------|------|---------|---------|
+| Desktop Build | `desktop-build.yml` | Push to `main`, `v*` tag | CI build + GitHub Release (Linux, macOS, Windows) |
+| iOS Build | `ios-build.yml` | Push to `main` (when app files change) | TestFlight build |
+| Windows Smoke Test | `windows-smoke-test.yml` | Manual dispatch | Download + launch + screenshot on real Windows |
+
+## Unified Versioning
+
+Both desktop and iOS read from the same `tauri.conf.json` version. The release script (`scripts/desktop-release.py`) manages versioning:
+
+- **`make release`** — Bumps version, commits, creates `v*` tag, pushes. The tag triggers `desktop-build.yml`; the push triggers `ios-build.yml`. Both platforms build from one command.
+- **`make release-ios`** — Bumps version, commits, pushes to main **without** a tag. Only `ios-build.yml` triggers (for iOS-only TestFlight iterations).
+
+## Desktop Build (`desktop-build.yml`)
+
+Builds the Tauri app for Linux, macOS, and Windows. On tag pushes, creates a GitHub Release with all platform binaries.
+
+### Triggers
+
+| Trigger | Condition | Result |
+|---------|-----------|--------|
+| Push to `main` | Always | CI build (compile + test, no release) |
+| Push `v*` tag | Always | Full build + GitHub Release with binaries |
+| Manual dispatch | Via GitHub Actions UI | CI build |
+
+Concurrent builds on the same ref are cancelled automatically.
+
+### Platform Jobs
+
+| Platform | Runner | Output |
+|----------|--------|--------|
+| Linux | `ubuntu-22.04` | `immerse-yourself-linux-x86_64.tar.gz` |
+| macOS | `macos-latest` | `Immerse.Yourself_X.Y.Z_aarch64.dmg` |
+| Windows | `windows-latest` | `immerse-yourself-windows-x86_64.zip` |
+
+### Release Job
+
+Only runs on `v*` tag pushes. Downloads all 3 platform artifacts and creates a GitHub Release with permanent download links.
+
+### Pipeline Flow
+
+```mermaid
+graph TD
+    A[Trigger: push to main or v* tag] --> B[3 Parallel Build Jobs]
+    B --> C1[Linux: ubuntu-22.04]
+    B --> C2[macOS: macos-latest]
+    B --> C3[Windows: windows-latest]
+    C1 --> D1[tar.gz artifact]
+    C2 --> D2[DMG artifact]
+    C3 --> D3[ZIP artifact]
+    D1 --> E{v* tag?}
+    D2 --> E
+    D3 --> E
+    E -->|Yes| F[Create GitHub Release]
+    E -->|No| G[Done - CI only]
+```
+
+---
+
 ## iOS Build (`ios-build.yml`)
 
-Builds the Immerse Yourself Tauri app for iOS, signs it with an Apple distribution certificate, and optionally uploads to TestFlight.
+Builds the Immerse Yourself Tauri app for iOS, signs it with an Apple distribution certificate, and uploads to TestFlight.
 
 ### Triggers
 
@@ -67,3 +130,43 @@ graph TD
 - iOS Distribution certificate exported as .p12
 - App Store provisioning profile linked to the App ID
 - All secrets added to the GitHub repository
+
+---
+
+## Windows Smoke Test (`windows-smoke-test.yml`)
+
+Downloads a release build, launches it on a real Windows runner, verifies it starts successfully, and captures a screenshot.
+
+### Triggers
+
+| Trigger | Condition |
+|---------|-----------|
+| Manual dispatch | Via GitHub Actions UI or `make test-windows`, with optional version input |
+
+### Usage
+
+```bash
+make test-windows              # Test latest release
+make test-windows VERSION=v0.3.25  # Test a specific version
+make test-windows-status       # Check run status
+make test-windows-screenshot   # Download screenshot from latest completed run
+```
+
+### Pipeline Flow
+
+```mermaid
+graph TD
+    A[Manual Dispatch] --> B[Determine Version<br/>input or latest release]
+    B --> C[Download Windows ZIP<br/>from GitHub Release]
+    C --> D[Extract + Check WebView2]
+    D --> E[Launch Application]
+    E --> F[Wait for Window<br/>+ Capture Screenshot]
+    F --> G[Upload Screenshot Artifact]
+```
+
+### Build Details
+
+- **Runner**: `windows-latest`
+- **Input**: Release tag (e.g., `v0.3.25`) or latest release if omitted
+- **Checks**: WebView2 runtime presence, application startup, window rendering
+- **Output**: Screenshot artifact downloadable from the Actions run page

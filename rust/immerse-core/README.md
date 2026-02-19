@@ -123,6 +123,6 @@ sequenceDiagram
 Always use Make targets from the project root (never `cargo` directly):
 
 ```bash
-make tauri-test     # Run tests
-make tauri-check    # Type-check
+make test       # Run tests
+make check      # Type-check
 ```

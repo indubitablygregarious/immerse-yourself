@@ -2,7 +2,7 @@
 
 Tauri 2.x desktop application for the Immerse Yourself ambient environment system. Combines a Rust backend for state management and engine coordination with a React/TypeScript frontend for the user interface.
 
-**Version:** 0.3.1 | **Identifier:** `com.peterlesko.immerseyourself`
+**Identifier:** `com.peterlesko.immerseyourself` | **Version:** See `tauri.conf.json`
 
 ## Architecture
 
@@ -142,10 +142,10 @@ Environment categories filter out all sound effects. Sound categories show only 
 Always use the Makefile from the project root -- never run `cargo build` directly (requires Rust 1.89 wrapper):
 
 ```bash
-make tauri-dev      # Start dev server with hot reload
-make tauri-build    # Production build (deb, appimage)
-make tauri-test     # Run Rust tests
-make tauri-check    # Type-check without building
+make dev        # Start dev server with hot reload
+make build      # Production build
+make test       # Run Rust tests
+make check      # Type-check without building
 ```
 
 ## Key Dependencies

@@ -43,6 +43,9 @@ env_conf/                 # Environment YAML configs (see env_conf/README.md)
 sound_conf/               # Sound collection YAML configs (see sound_conf/README.md)
 sounds/                   # Local sound effect files
 freesound.org/            # Cached freesound downloads (not in git)
+scripts/
+  desktop-release.py      # Release automation (desktop + iOS, --ios-only flag)
+devlog/                   # Development diary entries
 tests/
   e2e/                    # E2E tests and screenshot automation
     tauri_app.py          # TauriApp helper (WebKit Inspector Protocol + keyboard fallback)
@@ -50,6 +53,7 @@ tests/
     test_screenshots.py   # Screenshot test (Travel > Afternoon)
     Dockerfile            # Multi-stage Docker build for CI
     run.sh                # Container entrypoint (Xvfb, PulseAudio, D-Bus)
+.venv/                    # Python virtual environment for ruff (not in git)
 Makefile                  # Build commands (MUST use these, not cargo directly)
 ```
 
@@ -74,6 +78,7 @@ make release             # Cut a release — builds desktop + iOS (bump, tag, pu
 make release-dry-run     # Preview what a release would do
 make release-ios         # iOS TestFlight only (bump, push to main, no tag)
 make release-ios-dry-run # Preview what an iOS-only release would do
+make lint                # Lint Python scripts with ruff (requires .venv)
 ```
 
 Use `RELEASE_ARGS` to pass options: `make release RELEASE_ARGS="--minor"`, `make release RELEASE_ARGS="--major"`, or `make release RELEASE_ARGS="--version 1.0.0"`.
@@ -130,6 +135,28 @@ make ios-build   # Build frontend + Rust for iOS (debug)
 make ios-release # Build release IPA for TestFlight
 make ios-sim     # Build and run on iOS Simulator
 make ios-open    # Open Xcode project for manual signing/debugging
+```
+
+### Linting
+
+Python scripts are linted with [ruff](https://docs.astral.sh/ruff/). The linter runs from a `.venv` virtual environment.
+
+```bash
+make lint                # Lint scripts/ and tests/e2e/ with ruff
+```
+
+To set up the venv (first time only):
+```bash
+python3 -m venv .venv && .venv/bin/pip3 install ruff
+```
+
+### Windows Smoke Test
+
+```bash
+make test-windows              # Trigger smoke test on GitHub Actions (real Windows)
+make test-windows VERSION=TAG  # Test a specific release version
+make test-windows-status       # Check smoke test run status
+make test-windows-screenshot   # Download screenshot from latest completed run
 ```
 
 ### Development with Content
@@ -441,7 +468,7 @@ Skills are invoked with `/skill-name` in Claude Code.
 
 | Skill | Description |
 |-------|-------------|
-| `/desktop-release` | Cut a desktop release — bumps version, tags, pushes, monitors CI. Options: `--minor`, `--major`, `--version X.Y.Z`. |
-| `/ios-release` | Cut an iOS release for TestFlight. |
+| `/desktop-release` | Cut a full release (desktop + iOS) — bumps version, tags, pushes, monitors CI. Options: `--minor`, `--major`, `--version X.Y.Z`. |
+| `/ios-release` | Cut an iOS-only TestFlight release — bumps version, pushes to main (no tag). Delegates to `scripts/desktop-release.py --ios-only`. |
 | `/build-check` | Run cross-platform build verification (3 parallel agents). |
 | `/devlog` | Generate a diary-style devlog entry from git commits. |

@@ -1,0 +1,3 @@
+# 2026-02-19
+
+I focused on CI and release infrastructure today. I added a Windows smoke test to the desktop build workflow that actually launches the exe, verifies it starts up, and captures a screenshot — nice to have that extra confidence before shipping. I also unified the iOS and desktop release flows so they share the same version-bump-and-tag approach, and added ruff linting to the Python scripts. Cut release v0.3.25 as a desktop build. Wrapped up the day updating all the documentation — README, workflow docs, CLAUDE.md — to reflect the new unified versioning and CI setup.

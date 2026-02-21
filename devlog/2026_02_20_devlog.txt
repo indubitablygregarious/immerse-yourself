@@ -1,0 +1,3 @@
+# 2026-02-20
+
+Long day. I built the About & Credits panel in Settings — it pulls from attribution.json and renders a scrollable list of all CC-BY sound credits grouped by author, with clickable freesound links. Also added attribution tooltips to the StatusBar so when you hover over an active atmosphere sound that's CC-BY licensed, it shows "by Author — CC-BY 4.0" right there. Had to fix a nasty dev build performance issue too — turns out the debug builds were crawling because of unoptimized audio decoding, so I bumped opt-level for dependencies. On the private repo side, I expanded the findaudio skill to search both Openverse and Freesound directly, which made the later sound replacement work much faster. Also did some time tracking and planning updates.

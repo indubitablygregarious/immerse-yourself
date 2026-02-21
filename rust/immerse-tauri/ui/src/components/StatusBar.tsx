@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import type { ActiveState } from '../types';
+import { getAttribution, formatLicense } from '../hooks/useAttribution';
 
 interface StatusBarProps {
   activeState: ActiveState | null;
@@ -36,9 +37,18 @@ export const StatusBar: FC<StatusBarProps> = ({ activeState }) => {
 
   // Atmosphere section - show names with author info
   tooltipLines.push('═══ Atmosphere ═══');
+  const activeUrls = activeState?.active_atmosphere_urls ?? [];
   if (atmosphereNamesWithAuthor.length > 0) {
-    for (const name of atmosphereNamesWithAuthor) {
-      tooltipLines.push(`  🌊 ${name}`);
+    for (let i = 0; i < atmosphereNamesWithAuthor.length; i++) {
+      tooltipLines.push(`  🌊 ${atmosphereNamesWithAuthor[i]}`);
+      // Show CC-BY attribution if applicable
+      const url = activeUrls[i];
+      if (url) {
+        const attr = getAttribution(url);
+        if (attr) {
+          tooltipLines.push(`       by ${attr.author} — ${formatLicense(attr.license)}`);
+        }
+      }
     }
   } else {
     tooltipLines.push('  (not playing)');

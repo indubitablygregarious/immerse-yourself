@@ -2,12 +2,13 @@ import { useState, useEffect, type FC } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
 import { useTheme, type Theme } from '../contexts/ThemeContext';
+import { getAttributionsByAuthor, formatLicense, type Attribution } from '../hooks/useAttribution';
 
 interface SettingsDialogProps {
   onClose: () => void;
 }
 
-type SettingsPanel = 'appearance' | 'spotify' | 'bulbs' | 'downloads' | 'user_content';
+type SettingsPanel = 'appearance' | 'spotify' | 'bulbs' | 'downloads' | 'user_content' | 'about';
 
 // Types for backend configs
 interface SpotifyConfig {
@@ -38,6 +39,7 @@ const PANELS: { id: SettingsPanel; icon: string; label: string }[] = [
   { id: 'bulbs', icon: '💡', label: 'WIZ Bulbs' },
   { id: 'downloads', icon: '📥', label: 'Downloads' },
   { id: 'user_content', icon: '📁', label: 'User Content' },
+  { id: 'about', icon: 'ℹ️', label: 'About & Credits' },
 ];
 
 export const SettingsDialog: FC<SettingsDialogProps> = ({ onClose }) => {
@@ -151,6 +153,7 @@ export const SettingsDialog: FC<SettingsDialogProps> = ({ onClose }) => {
               />
             )}
             {activePanel === 'user_content' && <UserContentPanel />}
+            {activePanel === 'about' && <AboutPanel />}
           </div>
         </div>
       </div>
@@ -716,6 +719,64 @@ sounds/      \u2014 Audio files (.wav, .mp3, .ogg)`}</pre>
           Configs with the same filename as built-in ones will override them.
           Use any category name and it will appear in the sidebar automatically.
         </p>
+      </div>
+    </div>
+  );
+};
+
+const AboutPanel: FC = () => {
+  const attributionsByAuthor = getAttributionsByAuthor();
+  const authors = Object.keys(attributionsByAuthor);
+
+  const handleOpenUrl = async (url: string) => {
+    try {
+      await open(url);
+    } catch (e) {
+      console.error('Failed to open URL:', e);
+    }
+  };
+
+  return (
+    <div className="settings-panel about-panel">
+      <h3 className="settings-panel-title">About & Credits</h3>
+      <p className="settings-panel-description">
+        Immerse Yourself &mdash; immersive soundscapes for tabletop RPGs.
+      </p>
+
+      <div className="settings-section">
+        <label className="settings-label">Built With</label>
+        <p className="about-built-with">
+          Tauri &middot; React &middot; Rust &middot; Freesound.org
+        </p>
+      </div>
+
+      <div className="settings-section">
+        <label className="settings-label">Sound Credits (CC-BY)</label>
+        <p className="settings-help-text">
+          The following sounds are used under Creative Commons Attribution licenses.
+          Thank you to all contributors!
+        </p>
+        <div className="about-credits-list">
+          {authors.map(author => (
+            <div key={author} className="about-author-group">
+              <h4 className="about-author-name">{author}</h4>
+              <ul className="about-sound-list">
+                {attributionsByAuthor[author].map((attr: Attribution) => (
+                  <li key={attr.url} className="about-sound-item">
+                    <button
+                      className="about-sound-link"
+                      onClick={() => handleOpenUrl(attr.url)}
+                      title={`Open on Freesound: ${attr.url}`}
+                    >
+                      {attr.name}
+                    </button>
+                    <span className="about-sound-license">{formatLicense(attr.license)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

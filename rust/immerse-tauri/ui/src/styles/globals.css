@@ -2073,3 +2073,90 @@ body {
   0%, 100% { opacity: 0.7; }
   50% { opacity: 1; }
 }
+
+/* ─── About & Credits Panel ─── */
+
+.about-panel {
+  overflow-y: auto;
+}
+
+.about-built-with {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.about-credits-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  background: var(--bg-secondary);
+}
+
+.about-author-group {
+  margin-bottom: 1rem;
+}
+
+.about-author-group:last-child {
+  margin-bottom: 0;
+}
+
+.about-author-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem 0;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.about-sound-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.about-sound-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.8rem;
+}
+
+.about-sound-link {
+  background: none;
+  border: none;
+  color: #5b9fe6;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  word-break: break-word;
+}
+
+.about-sound-link:hover {
+  color: #7db8f5;
+  text-decoration-style: solid;
+}
+
+[data-theme="light"] .about-sound-link {
+  color: #2563eb;
+}
+
+[data-theme="light"] .about-sound-link:hover {
+  color: #1d4ed8;
+}
+
+.about-sound-license {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

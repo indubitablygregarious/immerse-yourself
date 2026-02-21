@@ -23,7 +23,21 @@ cd /home/pete/code/immerse-yourself && python3 scripts/desktop-release.py --dry-
 
 Show the user the current version and what the new version will be. If the user provided arguments (like `--minor`, `--major`, or `--version X.Y.Z`), pass them through.
 
-### Step 2: Confirm and execute
+### Step 2: Generate release notes
+
+Before cutting the release, generate release notes from all commits since the last tag:
+
+```bash
+cd /home/pete/code/immerse-yourself && git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"- %s" --no-merges
+```
+
+Compose human-readable release notes from these commits:
+- Group changes into categories: **Features**, **Fixes**, **Improvements**, **Other** (skip devlog-only and version-bump commits)
+- Write a short summary sentence at the top
+- Keep each bullet concise — rewrite commit messages into user-facing language (e.g., "Add About & Credits panel" becomes "New About & Credits panel with attribution tooltips")
+- Show the draft release notes to the user for approval alongside the version bump
+
+### Step 3: Confirm and execute
 
 If the user approves, run the actual release. Pass through any arguments the user specified (e.g., `/desktop-release --minor`).
 
@@ -40,11 +54,36 @@ The script will:
 6. Monitor the GitHub Actions workflow until all 3 platform builds complete
 7. Report the release URL when the release job finishes
 
-### Step 3: Report results
+### Step 4: Attach release notes
+
+Once the release is created on GitHub, update it with the release notes:
+
+```bash
+cd /home/pete/code/immerse-yourself && gh release edit vX.Y.Z --notes "RELEASE_NOTES_HERE"
+```
+
+Use a heredoc for multi-line notes:
+```bash
+gh release edit vX.Y.Z --notes "$(cat <<'EOF'
+## What's New in vX.Y.Z
+
+Summary sentence here.
+
+### Features
+- ...
+
+### Fixes
+- ...
+EOF
+)"
+```
+
+### Step 5: Report results
 
 When the build finishes, report:
 - Whether it succeeded or failed
 - The release URL (e.g., `github.com/indubitablygregarious/immerse-yourself/releases/tag/vX.Y.Z`)
+- The release notes that were attached
 - If it failed, show the command to view logs: `gh run view <id> --log-failed`
 
 ## Options

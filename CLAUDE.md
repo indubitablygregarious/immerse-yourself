@@ -41,8 +41,10 @@ rust/
         styles/           # CSS
 env_conf/                 # Environment YAML configs (see env_conf/README.md)
 sound_conf/               # Sound collection YAML configs (see sound_conf/README.md)
-sounds/                   # Local sound effect files
-freesound.org/            # Cached freesound downloads (not in git)
+sounds/                   # Local sound effect files (.wav, .mp3)
+freesound_sounds/         # Bundled free-tier freesound atmosphere sounds (in git)
+  attribution.json        # Machine-readable CC-BY attribution data
+freesound.org/            # Cached freesound downloads at runtime (not in git)
 scripts/
   desktop-release.py      # Release automation (desktop + iOS, --ios-only flag)
 devlog/                   # Development diary entries
@@ -161,7 +163,7 @@ make test-windows-screenshot   # Download screenshot from latest completed run
 
 ### Development with Content
 
-The public repo ships with empty `env_conf/`, `sound_conf/`, and `sounds/` directories. To develop with content:
+The public repo ships with bundled free-tier atmosphere sounds in `freesound_sounds/` and a small set of sound effects in `sounds/`. Environment and sound configs in `env_conf/` and `sound_conf/` reference these bundled sounds. To develop with the full content library:
 
 1. **User content directory**: Place environment configs and sounds in your user content directory (auto-created on first launch):
    - **Linux**: `~/.local/share/com.peterlesko.immerseyourself/`
@@ -251,11 +253,15 @@ Handles keyboard shortcuts, responsive layout (mobile breakpoint at 960px), time
 | `TimeOfDayBar` | 4 time buttons (blank when unavailable) |
 | `StopButtons` | Stop Lights / Stop Sound / Stop Atmosphere |
 | `StatusBar` | Bottom bar showing active environment and sounds |
-| `SettingsDialog` | 5-panel settings (Appearance, Spotify, WIZ Bulbs, Downloads, User Content) |
+| `SettingsDialog` | 6-panel settings (Appearance, Spotify, WIZ Bulbs, Downloads, User Content, About & Credits) |
 | `TimeVariantDialog` | Popup for selecting time variant on environment click |
 | `VolumeSlider` | Volume control for loop sounds |
 | `NowPlayingWidget` | Shows currently playing atmosphere sounds |
 | `LightingPreviewWidget` | Visual preview of light colors |
+
+**Attribution System**:
+
+`freesound_sounds/attribution.json` stores machine-readable CC-BY attribution data for all bundled sounds. The `useAttribution.ts` hook loads this data and maps freesound URLs to author/title/license info. The `StatusBar` component shows attribution tooltips for currently playing sounds, and `SettingsDialog > About & Credits` panel lists all credited sounds.
 
 **Types** (`ui/src/types/index.ts`):
 
@@ -468,7 +474,7 @@ Skills are invoked with `/skill-name` in Claude Code.
 
 | Skill | Description |
 |-------|-------------|
-| `/desktop-release` | Cut a full release (desktop + iOS) — bumps version, tags, pushes, monitors CI. Options: `--minor`, `--major`, `--version X.Y.Z`. |
+| `/desktop-release` | Cut a full release (desktop + iOS) — generates release notes from commits, bumps version, tags, pushes, monitors CI, attaches notes to GitHub release. Options: `--minor`, `--major`, `--version X.Y.Z`. |
 | `/ios-release` | Cut an iOS-only TestFlight release — bumps version, pushes to main (no tag). Delegates to `scripts/desktop-release.py --ios-only`. |
 | `/build-check` | Run cross-platform build verification (3 parallel agents). |
 | `/devlog` | Generate a diary-style devlog entry from git commits. |

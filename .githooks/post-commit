@@ -1,0 +1,80 @@
+#!/bin/bash
+# Post-commit hook: keep CLAUDE.md and README.md in sync with code changes.
+#
+# After each commit, checks if non-doc files changed and asks Claude to
+# update the docs if they're stale. Commits the result as a "docs:" commit.
+# Skips if the commit is already a doc update (prevents infinite loops).
+
+# Guard: skip if this commit is already a doc update
+COMMIT_MSG=$(git log -1 --format=%s)
+if [[ "$COMMIT_MSG" == docs:* ]]; then
+    exit 0
+fi
+
+# Guard: skip if only devlog/doc files changed
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+NON_DOC_CHANGES=$(echo "$CHANGED_FILES" | grep -v -E '^(devlog/|CLAUDE\.md|README\.md|\.githooks/)')
+if [ -z "$NON_DOC_CHANGES" ]; then
+    exit 0
+fi
+
+# Guard: don't run during rebase or merge
+if [ -d "$(git rev-parse --git-dir)/rebase-merge" ] || [ -d "$(git rev-parse --git-dir)/rebase-apply" ] || [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+    exit 0
+fi
+
+echo "📝 Checking if docs need updating..."
+
+# Gather context for Claude
+VERSION=$(python3 -c "import json; print(json.load(open('rust/immerse-tauri/tauri.conf.json'))['version'])" 2>/dev/null || echo "unknown")
+SKILLS=$(ls .claude/skills/*/SKILL.md 2>/dev/null | while read f; do
+    dir=$(basename $(dirname "$f"))
+    desc=$(grep '^description:' "$f" | head -1 | sed 's/^description: //')
+    echo "  /$(echo $dir | tr '-' '-'): $desc"
+done)
+COMPONENTS=$(ls rust/immerse-tauri/ui/src/components/*.tsx 2>/dev/null | xargs -I{} basename {} .tsx | sort | tr '\n' ', ' | sed 's/,$//')
+SETTINGS_PANELS=$(grep -oP "label: '[^']+'" rust/immerse-tauri/ui/src/components/SettingsDialog.tsx 2>/dev/null | sed "s/label: '//;s/'//" | tr '\n' ', ' | sed 's/,$//')
+
+PROMPT="You are updating documentation for the Immerse Yourself project.
+
+Current version: $VERSION
+Settings panels: $SETTINGS_PANELS
+UI components: $COMPONENTS
+Skills:
+$SKILLS
+
+Files changed in latest commit: $CHANGED_FILES
+
+Read CLAUDE.md and README.md. Check for any stale information:
+- Version references
+- Settings panel count/names
+- Skills table (names, descriptions)
+- Component list
+- Directory structure (new dirs like freesound_sounds/)
+- Feature descriptions
+
+If everything is already accurate, output exactly: DOCS_UP_TO_DATE
+If updates are needed, make the edits directly using the Edit tool. Only fix genuinely stale info — do not rephrase, reformat, or add commentary."
+
+# Run Claude in non-interactive mode with a short timeout
+OUTPUT=$(timeout 60 claude -p "$PROMPT" --allowedTools "Read,Edit" 2>&1)
+
+# Check if docs were updated
+if echo "$OUTPUT" | grep -q "DOCS_UP_TO_DATE"; then
+    echo "   ✅ Docs are up to date"
+    exit 0
+fi
+
+# Check if Claude made edits
+if git diff --quiet CLAUDE.md README.md 2>/dev/null; then
+    echo "   ✅ No doc changes needed"
+    exit 0
+fi
+
+# Commit and push the doc updates
+git add CLAUDE.md README.md
+git commit -m "docs: sync CLAUDE.md and README.md with latest changes" --no-verify
+echo "   📝 Docs updated and committed"
+
+git push origin main 2>/dev/null &
+echo "   🚀 Pushing to origin (background)"

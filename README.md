@@ -60,10 +60,12 @@ graph TB
 - **Time-of-day selector** -- Morning / Daytime / Afternoon / Evening with keyboard shortcuts 1-4
 - **Loop sounds** with individual volume sliders (toggle on/off, mix freely)
 - **Three stop buttons**: Stop Lights (red), Stop Sound (orange, Spacebar), Stop Atmosphere (green)
-- **Settings dialog** (Ctrl+,) -- Appearance, Spotify credentials, WIZ bulb IPs, download options
+- **Settings dialog** (Ctrl+,) -- Appearance, Spotify credentials, WIZ bulb IPs, downloads, About & Credits
 - **Keyboard shortcuts**: Q-L for environment buttons, 1-4 for time, Ctrl+PgUp/PgDn for categories
 - **Dark mode** -- Light, Dark, or System theme
 - **Lighting preview** -- real-time color gradient of active light groups
+- **About & Credits** -- attribution panel listing all CC-BY sound sources with links
+- **Bundled sounds** -- free-tier atmosphere sounds ship with the app, no downloads needed to get started
 - **Exit cleanup** -- stops engines and sets lights to warm white
 
 ## Requirements
@@ -118,7 +120,7 @@ Launch the app and go to **Settings** (Ctrl+,):
 
 ## Adding Content
 
-The app ships with empty content directories. Add your own environments and sounds:
+The app ships with bundled free-tier atmosphere sounds and a starter set of environments. Add your own or install content packs:
 
 ### Option 1: Direct (for development)
 
@@ -253,6 +255,7 @@ immerse-yourself/
 ├── env_conf/                   # Environment YAML configs
 ├── sound_conf/                 # Sound variation collections
 ├── sounds/                     # Local sound effect files
+├── freesound_sounds/           # Bundled free-tier atmosphere sounds + attribution.json
 ├── scripts/                    # Release automation (desktop-release.py)
 ├── .github/workflows/          # CI/CD (desktop-build, ios-build, windows-smoke-test)
 ├── devlog/                     # Development diary
@@ -297,7 +300,11 @@ Built with:
 - [React](https://react.dev/) -- Frontend UI library
 - [TypeScript](https://www.typescriptlang.org/) -- Type-safe JavaScript
 - [Vite](https://vitejs.dev/) -- Frontend build tool
-- [freesound.org](https://freesound.org/) -- Ambient sound sources
+- [freesound.org](https://freesound.org/) -- Ambient sound sources (CC-BY and CC0)
+
+### Sound Attribution
+
+Bundled atmosphere sounds are sourced from [freesound.org](https://freesound.org/) under Creative Commons licenses. Full attribution for all CC-BY sounds is available in `ATTRIBUTION.md` and in-app via **Settings > About & Credits**.
 
 ## License
 

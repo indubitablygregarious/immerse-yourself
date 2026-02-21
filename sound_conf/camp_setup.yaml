@@ -5,8 +5,8 @@ description: "Various digging, shoveling, and camp setup sounds"
 
 sounds:
   # Original dig sound from sounds/ directory
-  - file: "sounds/dig.wav"
-    description: "Original digging sound"
+  - file: "sounds/shovel-dirt.mp3"
+    description: "Shovel digging in dirt (CC-0)"
 
   # Freesound camping/digging sounds
   - url: "https://freesound.org/people/craigsmith/sounds/487086/"

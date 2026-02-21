@@ -5,8 +5,8 @@ description: "Various door creaking and squeaking sounds"
 
 sounds:
   # Original door sound from sounds/ directory
-  - file: "sounds/dooropen.wav"
-    description: "Original door open sound"
+  - file: "sounds/door-opening.mp3"
+    description: "Door opening sound (CC-0)"
 
   # Freesound door sounds
   - url: "https://freesound.org/people/callyrobyn/sounds/417968/"

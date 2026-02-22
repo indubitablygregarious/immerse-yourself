@@ -114,6 +114,18 @@
     ]
   },
   {
+    "id": 670519,
+    "name": "LS 33889 PH UndergroundRiver.wav",
+    "author": "kevp888",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "url": "https://freesound.org/people/kevp888/sounds/670519/",
+    "freesound_url": "https://freesound.org/people/kevp888/sounds/670519/",
+    "local_path": "freesound_sounds/cc-by/kevp888_670519_Freesound_-_LS_33889_PH_UndergroundRiver.wav_by_kevp888.mp3",
+    "used_in": [
+      "Cave"
+    ]
+  },
+  {
     "id": 752092,
     "name": "240730_220854_FR_Crowd_outdoor",
     "author": "kevp888",
@@ -540,6 +552,18 @@
     "used_in": [
       "Castle Courtyard",
       "War Camp"
+    ]
+  },
+  {
+    "id": 700022,
+    "name": "11710 large tavern ambience loop.wav",
+    "author": "Robinhood76",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "url": "https://freesound.org/people/Robinhood76/sounds/700022/",
+    "freesound_url": "https://freesound.org/people/Robinhood76/sounds/700022/",
+    "local_path": "freesound_sounds/cc-by/Robinhood76_700022_Freesound_-_11710_large_tavern_ambience_loop.wav_by_Robinhood76.mp3",
+    "used_in": [
+      "Tavern"
     ]
   },
   {

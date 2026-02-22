@@ -30,7 +30,6 @@ interface WizBulbConfig {
 interface AppSettings {
   ignore_ssl_errors: boolean;
   spotify_auto_start: string;
-  downloads_enabled: boolean;
 }
 
 const PANELS: { id: SettingsPanel; icon: string; label: string }[] = [
@@ -560,28 +559,9 @@ const DownloadsPanel: FC<DownloadsPanelProps> = ({ settings, onSettingsChange })
     <div className="settings-panel">
       <h3 className="settings-panel-title">Downloads</h3>
       <p className="settings-panel-description">
-        Atmosphere sounds are bundled with the app. On-demand downloads are only
-        needed if you add custom environments with freesound URLs that aren't bundled.
+        All atmosphere sounds are bundled with the app. Use these settings to
+        manage the sound cache and configure network options.
       </p>
-
-      <div className="settings-section">
-        <label className="settings-label">On-Demand Downloads</label>
-        <div className="settings-checkbox-group">
-          <label className="settings-checkbox">
-            <input
-              type="checkbox"
-              checked={settings.downloads_enabled}
-              onChange={e => handleSettingChange('downloads_enabled', e.target.checked)}
-              disabled={saving}
-            />
-            <span>Enable on-demand downloads from freesound.org</span>
-          </label>
-        </div>
-        <p className="settings-help-text">
-          When disabled, only bundled sounds play. Enable this if you add custom
-          environments that reference freesound URLs not included in the bundle.
-        </p>
-      </div>
 
       <div className="settings-section">
         <label className="settings-label">SSL Certificate Verification</label>

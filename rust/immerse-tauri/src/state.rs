@@ -81,9 +81,10 @@ const SOUND_CATEGORY_KEYWORDS: &[(&str, &[&str])] = &[
 
 use immerse_core::config::{
     get_available_times_at_path, get_time_variant_engines_at_path, has_time_variants_at_path,
-    ConfigLoader, EnginesConfig, EnvironmentConfig, Metadata, SoundConfig, TimeOfDay,
+    ConfigLoader, EnginesConfig, EnvironmentConfig, Metadata, SoundConfig, SoundMix, TimeOfDay,
 };
 use immerse_core::download_queue::{find_downloaded_file, load_sound_manifest, parse_freesound_url};
+use rand::Rng;
 use immerse_core::engines::{AtmosphereEngine, LightsEngine, SoundEngine, SpotifyEngine};
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
@@ -209,8 +210,6 @@ pub struct WizBulbConfig {
 pub struct AppSettings {
     pub ignore_ssl_errors: bool,
     pub spotify_auto_start: String,
-    /// Whether on-demand freesound downloads are enabled (default: false).
-    pub downloads_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -218,7 +217,6 @@ impl Default for AppSettings {
         Self {
             ignore_ssl_errors: false,
             spotify_auto_start: "ask".to_string(),
-            downloads_enabled: false,
         }
     }
 }
@@ -969,8 +967,7 @@ impl AppState {
     pub fn save_app_settings(&self, settings: AppSettings) -> Result<(), String> {
         self.runtime.block_on(async {
             let inner = self.inner.lock().await;
-            let atmo = Arc::clone(&inner.atmosphere_engine);
-            inner.save_app_settings(settings, &atmo)
+            inner.save_app_settings(settings)
         })
     }
 }
@@ -1028,11 +1025,12 @@ impl AppStateInner {
         for (base_dir, label) in &manifest_locations {
             let manifest_path = base_dir.join("freesound_sounds").join("manifest.json");
             if manifest_path.exists() {
-                sound_manifest = load_sound_manifest(base_dir, &manifest_path);
-                tracing::info!("Loaded sound manifest from {} ({} entries)", label, sound_manifest.len());
-                break;
+                let entries = load_sound_manifest(base_dir, &manifest_path);
+                tracing::info!("Loaded sound manifest from {} ({} new entries)", label, entries.len());
+                sound_manifest.extend(entries);
             }
         }
+        tracing::info!("Total sound manifest: {} entries", sound_manifest.len());
 
         // Generate virtual loop sound configs from atmosphere mix URLs
         Self::generate_virtual_loop_configs(&mut configs_by_category, &cache_dir, &sound_manifest);
@@ -1052,34 +1050,16 @@ impl AppStateInner {
         let sound_engine = Arc::new(sound_engine);
         let atmosphere_engine = Arc::new(AtmosphereEngine::new_with_cache_dir(&cache_dir));
 
-        // Pass the pre-loaded manifest to the atmosphere engine
+        // Pass all manifests to the atmosphere engine (additive)
         for (base_dir, label) in &manifest_locations {
             let manifest_path = base_dir.join("freesound_sounds").join("manifest.json");
             if manifest_path.exists() {
                 atmosphere_engine.load_manifest(base_dir, &manifest_path);
-                tracing::info!("Loaded sound manifest from {} ({} entries)", label, atmosphere_engine.manifest_size());
-                break;
+                tracing::info!("Loaded sound manifest from {} ({} total entries)", label, atmosphere_engine.manifest_size());
             }
         }
 
-        // Read downloads_enabled from settings and apply to atmosphere engine
-        {
-            let settings_path = project_root.join("settings.ini");
-            let downloads_enabled = if settings_path.exists() {
-                let mut ini = configparser::ini::Ini::new();
-                if ini.load(&settings_path).is_ok() {
-                    ini.get("downloads", "enabled")
-                        .map(|v| v.to_lowercase() == "true")
-                        .unwrap_or(false)
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-            atmosphere_engine.set_downloads_enabled(downloads_enabled);
-            tracing::info!("Downloads enabled: {}", downloads_enabled);
-        }
+        // Runtime downloads are permanently disabled — all sounds must be pre-packaged.
 
         // Settings files live in user_content_dir (writable) when available,
         // falling back to project_root (desktop dev).  On iOS the project root
@@ -1761,8 +1741,39 @@ Content is loaded alongside built-in configs.
             if atmosphere.enabled {
                 // Start new atmosphere mix — mark names for refresh after downloads finish
                 self.needs_name_refresh = true;
-                tracing::info!("Starting {} atmosphere sounds for {}", atmosphere.mix.len(), config.name);
+
+                // Separate required vs optional sounds
+                let mut required: Vec<&SoundMix> = Vec::new();
+                let mut optional: Vec<&SoundMix> = Vec::new();
                 for sound in &atmosphere.mix {
+                    if sound.optional == Some(true) {
+                        optional.push(sound);
+                    } else {
+                        required.push(sound);
+                    }
+                }
+
+                // Roll probability for each optional sound
+                let mut rng = rand::thread_rng();
+                let mut selected_optional: Vec<&SoundMix> = optional
+                    .into_iter()
+                    .filter(|s| {
+                        let prob = s.probability.unwrap_or(1.0);
+                        rng.gen::<f32>() < prob
+                    })
+                    .collect();
+
+                // Shuffle so max_sounds cap doesn't always drop the same sounds
+                use rand::seq::SliceRandom;
+                selected_optional.shuffle(&mut rng);
+
+                // Enforce max_sounds: cap total sounds started
+                let max = atmosphere.max_sounds.unwrap_or(u32::MAX) as usize;
+                let mut total_started = 0usize;
+
+                // Start required sounds first (always play, up to max)
+                for sound in &required {
+                    if total_started >= max { break; }
                     let max_duration = sound.max_duration;
                     let fade_duration = sound.fade_duration;
                     tracing::info!(
@@ -1780,8 +1791,40 @@ Content is loaded alongside built-in configs.
                     } else {
                         self.active_atmosphere_urls.insert(sound.url.clone());
                         self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
+                        total_started += 1;
                     }
                 }
+
+                // Then start selected optional sounds (up to max)
+                for sound in &selected_optional {
+                    if total_started >= max { break; }
+                    let max_duration = sound.max_duration;
+                    let fade_duration = sound.fade_duration;
+                    tracing::info!(
+                        "Starting optional atmosphere sound: {} at volume {}{}{} (prob: {})",
+                        sound.url,
+                        sound.volume,
+                        max_duration.map_or(String::new(), |d| format!(" (max {}s)", d)),
+                        fade_duration.map_or(String::new(), |d| format!(" (fade {}s)", d)),
+                        sound.probability.unwrap_or(1.0)
+                    );
+                    if let Err(e) = self
+                        .atmosphere_engine
+                        .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
+                    {
+                        tracing::warn!("Failed to start atmosphere sound: {}", e);
+                    } else {
+                        self.active_atmosphere_urls.insert(sound.url.clone());
+                        self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
+                        total_started += 1;
+                    }
+                }
+
+                tracing::info!(
+                    "Started {}/{} atmosphere sounds for {} ({} required, {} optional)",
+                    total_started, atmosphere.mix.len(), config.name,
+                    required.len(), total_started.saturating_sub(required.len())
+                );
             }
         } else {
             tracing::info!("No atmosphere config for {}", config.name);
@@ -2553,9 +2596,6 @@ Content is loaded alongside built-in configs.
                 settings.ignore_ssl_errors = ini.get("downloads", "ignore_ssl_errors")
                     .map(|v| v.to_lowercase() == "true")
                     .unwrap_or(false);
-                settings.downloads_enabled = ini.get("downloads", "enabled")
-                    .map(|v| v.to_lowercase() == "true")
-                    .unwrap_or(false);
                 settings.spotify_auto_start = ini.get("spotify", "auto_start")
                     .unwrap_or_else(|| "ask".to_string());
             }
@@ -2565,19 +2605,14 @@ Content is loaded alongside built-in configs.
     }
 
     /// Saves the app settings.
-    fn save_app_settings(&self, settings: AppSettings, atmosphere_engine: &Arc<AtmosphereEngine>) -> Result<(), String> {
+    fn save_app_settings(&self, settings: AppSettings) -> Result<(), String> {
         let settings_path = self.settings_dir().join("settings.ini");
 
         self.update_settings_ini(&settings_path, "downloads", "ignore_ssl_errors",
             if settings.ignore_ssl_errors { "true" } else { "false" })?;
-        self.update_settings_ini(&settings_path, "downloads", "enabled",
-            if settings.downloads_enabled { "true" } else { "false" })?;
         self.update_settings_ini(&settings_path, "spotify", "auto_start", &settings.spotify_auto_start)?;
 
-        // Apply downloads_enabled to the atmosphere engine
-        atmosphere_engine.set_downloads_enabled(settings.downloads_enabled);
-
-        tracing::info!("Saved app settings (downloads_enabled={})", settings.downloads_enabled);
+        tracing::info!("Saved app settings");
         Ok(())
     }
 

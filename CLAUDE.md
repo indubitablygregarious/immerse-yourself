@@ -220,7 +220,7 @@ Sets up tracing, Tauri plugins, native File menu (Settings + Quit), registers al
 
 - `config/` -- `ConfigLoader`, `EnvironmentConfig`, `EnginesConfig`, time variant resolution
 - `engines/` -- `SoundEngine` (ffplay/aplay subprocess), `AtmosphereEngine` (looping ffplay with PulseAudio volume), `LightsEngine` (WIZ bulb async control), `SpotifyEngine` (OAuth + playback)
-- `download_queue.rs` -- Freesound URL parsing and download management
+- `download_queue.rs` -- Freesound URL parsing, manifest loading, sound cache lookup (runtime downloads disabled)
 - `ffi.rs` -- C-compatible FFI for Swift/iOS interop
 
 ### Frontend (React TypeScript)
@@ -253,7 +253,7 @@ Handles keyboard shortcuts, responsive layout (mobile breakpoint at 960px), time
 | `TimeOfDayBar` | 4 time buttons (blank when unavailable) |
 | `StopButtons` | Stop Lights / Stop Sound / Stop Atmosphere |
 | `StatusBar` | Bottom bar showing active environment and sounds |
-| `SettingsDialog` | 6-panel settings (Appearance, Spotify, WIZ Bulbs, Downloads, User Content, About & Credits) |
+| `SettingsDialog` | 6-panel settings (Appearance, Spotify, WIZ Bulbs, Downloads/Cache, User Content, About & Credits) |
 | `TimeVariantDialog` | Popup for selecting time variant on environment click |
 | `VolumeSlider` | Volume control for loop sounds |
 | `NowPlayingWidget` | Shows currently playing atmosphere sounds |
@@ -314,9 +314,9 @@ Loop sounds are identified by `metadata.loop: true` OR `engines.sound.loop: true
 
 On app launch, `trigger_startup_environment()` searches all categories (including hidden) for a config named "Startup" (case-insensitive), falls back to "Travel", and starts it automatically. If no configs are found, the app starts with an empty state.
 
-### Pre-Download for Atmosphere Sounds
+### Pre-Packaged Atmosphere Sounds
 
-When starting an environment, `pre_download_atmosphere()` checks if atmosphere URLs are cached. If not, it queues downloads and waits (up to 60s) with the inner lock released so `get_active_state` polling continues.
+Runtime downloads are permanently disabled. All atmosphere sounds must be pre-packaged in `freesound_sounds/` (with entries in `manifest.json`). Sound manifests are loaded additively from all configured locations (user content dir, project root) at startup. When creating new environments, download the sounds and add manifest entries before shipping.
 
 ## User Content Directory
 
@@ -428,9 +428,6 @@ battlefield_bulbs = 192.168.1.163 192.168.1.164
 ```ini
 [spotify]
 auto_start = ask  # Options: ask, start_local, use_remote, disabled
-
-[downloads]
-ignore_ssl_errors = false
 ```
 
 ## Debugging
@@ -444,8 +441,7 @@ ignore_ssl_errors = false
 1. **Cargo build fails**: Never run `cargo` directly. Use `make test`, `make check`, `make build`.
 2. **Lights not responding**: Check `.wizbulb.ini` exists and has correct IPs. Use Settings > WIZ Bulbs > Discover Bulbs.
 3. **Spotify not working**: Check `.spotify.ini` credentials. OAuth tokens in `.cache` expire periodically.
-4. **Missing atmosphere sounds**: Sounds are downloaded from freesound.org on first use and cached in `freesound.org/` directory.
-5. **SSL errors on downloads**: Enable "Ignore SSL Errors" in Settings > Downloads panel.
+4. **Missing atmosphere sounds**: All sounds must be pre-packaged in `freesound_sounds/` with entries in `manifest.json`. Runtime downloads are disabled. Check that the sound's freesound URL (with correct case) appears in the manifest.
 
 ## Known Issues
 

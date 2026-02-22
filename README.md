@@ -65,7 +65,7 @@ graph TB
 - **Dark mode** -- Light, Dark, or System theme
 - **Lighting preview** -- real-time color gradient of active light groups
 - **About & Credits** -- attribution panel listing all CC-BY sound sources with links
-- **Bundled sounds** -- free-tier atmosphere sounds ship with the app, no downloads needed to get started
+- **Bundled sounds** -- all atmosphere sounds ship pre-packaged with the app, no runtime downloads
 - **Exit cleanup** -- stops engines and sets lights to warm white
 
 ## Requirements
@@ -120,7 +120,7 @@ Launch the app and go to **Settings** (Ctrl+,):
 
 ## Adding Content
 
-The app ships with bundled free-tier atmosphere sounds and a starter set of environments. Add your own or install content packs:
+The app ships with all atmosphere sounds pre-packaged and a starter set of environments. Add your own or install content packs:
 
 ### Option 1: Direct (for development)
 

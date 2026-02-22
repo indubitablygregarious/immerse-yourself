@@ -212,11 +212,10 @@ impl DownloadQueue {
         self.manifest.read().unwrap().clone()
     }
 
-    /// Sets whether on-demand downloads are enabled.
-    pub fn set_downloads_enabled(&self, enabled: bool) {
-        let mut flag = self.downloads_enabled.write().unwrap();
-        *flag = enabled;
-        tracing::info!("Downloads enabled: {}", enabled);
+    /// No-op: runtime downloads are permanently disabled.
+    /// All sounds must be pre-packaged in the freesound_sounds directory.
+    pub fn set_downloads_enabled(&self, _enabled: bool) {
+        tracing::warn!("set_downloads_enabled() called but runtime downloads are permanently disabled");
     }
 
     /// Returns whether on-demand downloads are enabled.

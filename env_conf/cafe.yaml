@@ -1,21 +1,20 @@
-name: "Chill Jazz"
+name: "Cafe"
 category: "relaxation"
-description: "Ultra-relaxed jazz atmosphere with soft warm lighting and gentle animations"
-icon: "🎷"
+description: "Cozy coffee shop with gentle chatter, clinking cups, and warm lighting"
+icon: "☕"
 
 metadata:
-  tags: ["relaxation", "jazz", "ambient", "slow", "peaceful", "music"]
+  tags: ["relaxation", "cafe", "coffee", "ambient", "slow", "peaceful", "indoor"]
   intensity: "low"
-  suitable_for: ["meditation", "reading", "background music", "downtime"]
+  suitable_for: ["downtime", "social scenes", "reading", "quiet meetings"]
 
 engines:
   sound:
     enabled: true
-    file: "sound_conf:transition"
+    file: "sound_conf:squeaky_door"
 
   spotify:
     enabled: false
-    # context_uri: "spotify:playlist:37i9dQZF1EIe80k6uRBZGd"
 
   atmosphere:
     enabled: true
@@ -57,7 +56,7 @@ engines:
             min: 100
             max: 220
           flash:
-            probability: 0.05  # Rare flashes (>95%)
+            probability: 0.05
             color: [255, 255, 255]
             brightness: 220
             duration: 1.0

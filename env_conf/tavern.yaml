@@ -132,7 +132,7 @@ time_variants:
           volume: 40
           optional: true
           probability: 0.7
-        - url: https://freesound.org/people/deleted_user_2104797/sounds/346688/
+        - url: https://freesound.org/people/Robinhood76/sounds/700022/
           volume: 35
           optional: true
           probability: 0.5

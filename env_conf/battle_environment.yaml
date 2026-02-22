@@ -19,34 +19,14 @@ engines:
 
   atmosphere:
     enabled: false
-    # min_sounds: 3
-    # max_sounds: 5
-    # mix:
-    #   # Sword clash collection (required)
-    #   - url: "https://freesound.org/people/courter/sounds/658736/"
-    #     volume: 55
-    #
-    #   # Battle cries charging (required)
-    #   - url: "https://freesound.org/people/florianreichelt/sounds/563011/"
-    #     volume: 50
-    #
-    #   # Sword blades grinding (optional)
-    #   - url: "https://freesound.org/people/Hano_van_Dalen/sounds/767323/"
-    #     volume: 45
-    #     optional: true
-    #     probability: 0.6
-    #
-    #   # War cry (optional)
-    #   - url: "https://freesound.org/people/WelvynZPorterSamples/sounds/621336/"
-    #     volume: 40
-    #     optional: true
-    #     probability: 0.5
-    #
-    #   # Heavy breathing exertion (optional)
-    #   - url: "https://freesound.org/people/michaelnoise86/sounds/746491/"
-    #     volume: 40
-    #     optional: true
-    #     probability: 0.5
+    # Battle music playlist (blocked on playlist mode — see strategy issue)
+    # These should play 1 at a time, only when Spotify is not configured
+    # - url: "https://freesound.org/people/joshuaempyre/sounds/250856/"  # Epic Orchestra Loop (CC-BY, 0:45)
+    #   volume: 65
+    # - url: "https://freesound.org/people/humanoide9000/sounds/685841/"  # Cinematic Battle Music (CC-BY, 1:32)
+    #   volume: 60
+    # - url: "https://freesound.org/people/SunixMuz/sounds/767836/"  # Battle of Avalon (CC-BY)
+    #   volume: 60
 
   lights:
     enabled: true

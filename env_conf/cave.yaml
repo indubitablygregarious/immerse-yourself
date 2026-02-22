@@ -1,0 +1,92 @@
+name: "Cave"
+category: "dungeon"
+description: "Natural underground cavern with dripping water, echoing chambers, and eerie wind"
+icon: "🕳️"
+
+metadata:
+  tags: ["cave", "cavern", "underground", "natural", "water", "echo", "exploration"]
+  intensity: "medium"
+  suitable_for: ["cave exploration", "underground travel", "natural caverns", "hidden passages"]
+
+engines:
+  sound:
+    enabled: true
+    file: "sound_conf:transition"
+
+  spotify:
+    enabled: false
+
+  atmosphere:
+    enabled: true
+    min_sounds: 3
+    max_sounds: 6
+    mix:
+      # Dripping water in cave sewer (required — base layer)
+      - url: "https://freesound.org/people/Geoff-Bremner-Audio/sounds/732036/"
+        volume: 60
+
+      # Underground mine dripping (required — secondary drip texture)
+      - url: "https://freesound.org/people/poots/sounds/627789/"
+        volume: 50
+
+      # Underground river with cave echoes (required — ambient body)
+      - url: "https://freesound.org/people/kevp888/sounds/670519/"
+        volume: 45
+
+      # Eerie cave wind (optional)
+      - url: "https://freesound.org/people/Kinoton/sounds/558840/"
+        volume: 40
+        optional: true
+        probability: 0.6
+
+      # Dark cave atmosphere (optional — anxious undertone)
+      - url: "https://freesound.org/people/danlucaz/sounds/515240/"
+        volume: 30
+        optional: true
+        probability: 0.5
+
+      # Monster cave ambience (optional — creepy detail)
+      - url: "https://freesound.org/people/xkeril/sounds/714808/"
+        volume: 25
+        optional: true
+        probability: 0.4
+
+      # Cave echo suspense (optional — deep phantom echo)
+      - url: "https://freesound.org/people/danlucaz/sounds/515241/"
+        volume: 25
+        optional: true
+        probability: 0.4
+
+  lights:
+    enabled: true
+    animation:
+      cycletime: 4
+
+      groups:
+        backdrop:
+          type: "scene"
+          scenes:
+            ids: [5, 28, 31]
+            speed_min: 10
+            speed_max: 100
+          brightness:
+            min: 40
+            max: 90
+
+        overhead:
+          type: "rgb"
+          rgb:
+            base: [25, 30, 35]
+            variance: [15, 18, 20]
+          brightness:
+            min: 30
+            max: 70
+
+        battlefield:
+          type: "rgb"
+          rgb:
+            base: [20, 22, 28]
+            variance: [12, 14, 16]
+          brightness:
+            min: 20
+            max: 50

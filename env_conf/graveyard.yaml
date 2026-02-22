@@ -110,14 +110,14 @@ time_variants:
                 max: 130
   daytime:
     icon: 🪦
-    description: Eerie graveyard at night with howling wind and distant crows
+    description: Overcast graveyard under grey skies with howling wind and distant crows
     metadata:
       tags:
       - spooky
       - outdoor
-      - night
+      - daytime
       - cemetery
-      - horror
+      - overcast
       intensity: medium
       suitable_for: *id001
     engines: &id002

@@ -21,8 +21,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Generate LFS file list
+        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+
+      - name: Cache LFS objects
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ runner.os }}-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-${{ runner.os }}-
+
+      - name: Pull LFS files
+        run: git lfs pull
 
       - name: Install system dependencies
         run: |
@@ -104,8 +115,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Generate LFS file list
+        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+
+      - name: Cache LFS objects
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ runner.os }}-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-${{ runner.os }}-
+
+      - name: Pull LFS files
+        run: git lfs pull
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -171,8 +193,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Generate LFS file list
+        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+
+      - name: Cache LFS objects
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ runner.os }}-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-${{ runner.os }}-
+
+      - name: Pull LFS files
+        run: git lfs pull
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

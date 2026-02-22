@@ -1739,92 +1739,143 @@ Content is loaded alongside built-in configs.
         // Start atmosphere
         if let Some(ref atmosphere) = config.engines.atmosphere {
             if atmosphere.enabled {
-                // Start new atmosphere mix — mark names for refresh after downloads finish
-                self.needs_name_refresh = true;
+                // Spotify fallback: if spotify_fallback is true AND Spotify has a valid cached
+                // token AND the config has a Spotify URI, skip atmosphere (Spotify handles music).
+                // We check has_cached_token() (auth completed at least once), not just is_some()
+                // (has credentials on disk), so atmosphere still plays when Spotify auth hasn't
+                // succeeded yet or was never completed.
+                let spotify_authenticated = self.spotify_engine.as_ref()
+                    .map_or(false, |e| {
+                        // try_lock to avoid async — if locked, Spotify is mid-auth, treat as not ready
+                        e.try_lock().map_or(false, |engine| engine.has_cached_token())
+                    });
+                let skip_for_spotify = atmosphere.spotify_fallback == Some(true)
+                    && spotify_authenticated
+                    && has_spotify;
 
-                // Separate required vs optional sounds
-                let mut required: Vec<&SoundMix> = Vec::new();
-                let mut optional: Vec<&SoundMix> = Vec::new();
-                for sound in &atmosphere.mix {
-                    if sound.optional == Some(true) {
-                        optional.push(sound);
-                    } else {
-                        required.push(sound);
-                    }
-                }
-
-                // Roll probability for each optional sound
-                let mut rng = rand::thread_rng();
-                let mut selected_optional: Vec<&SoundMix> = optional
-                    .into_iter()
-                    .filter(|s| {
-                        let prob = s.probability.unwrap_or(1.0);
-                        rng.gen::<f32>() < prob
-                    })
-                    .collect();
-
-                // Shuffle so max_sounds cap doesn't always drop the same sounds
-                use rand::seq::SliceRandom;
-                selected_optional.shuffle(&mut rng);
-
-                // Enforce max_sounds: cap total sounds started
-                let max = atmosphere.max_sounds.unwrap_or(u32::MAX) as usize;
-                let mut total_started = 0usize;
-
-                // Start required sounds first (always play, up to max)
-                for sound in &required {
-                    if total_started >= max { break; }
-                    let max_duration = sound.max_duration;
-                    let fade_duration = sound.fade_duration;
+                if skip_for_spotify {
                     tracing::info!(
-                        "Starting atmosphere sound: {} at volume {}{}{}",
-                        sound.url,
-                        sound.volume,
-                        max_duration.map_or(String::new(), |d| format!(" (max {}s)", d)),
-                        fade_duration.map_or(String::new(), |d| format!(" (fade {}s)", d))
+                        "Skipping atmosphere for {} — spotify_fallback=true and Spotify is active",
+                        config.name
                     );
-                    if let Err(e) = self
-                        .atmosphere_engine
-                        .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
-                    {
-                        tracing::warn!("Failed to start atmosphere sound: {}", e);
-                    } else {
-                        self.active_atmosphere_urls.insert(sound.url.clone());
-                        self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
-                        total_started += 1;
-                    }
-                }
+                } else {
+                    // Start new atmosphere mix — mark names for refresh after downloads finish
+                    self.needs_name_refresh = true;
 
-                // Then start selected optional sounds (up to max)
-                for sound in &selected_optional {
-                    if total_started >= max { break; }
-                    let max_duration = sound.max_duration;
-                    let fade_duration = sound.fade_duration;
+                    // Separate sounds into categories: pooled, required (non-pooled), optional (non-pooled)
+                    let mut required: Vec<&SoundMix> = Vec::new();
+                    let mut optional: Vec<&SoundMix> = Vec::new();
+                    let mut pools: HashMap<String, Vec<&SoundMix>> = HashMap::new();
+
+                    for sound in &atmosphere.mix {
+                        if let Some(ref pool_name) = sound.pool {
+                            pools.entry(pool_name.clone()).or_default().push(sound);
+                        } else if sound.optional == Some(true) {
+                            optional.push(sound);
+                        } else {
+                            required.push(sound);
+                        }
+                    }
+
+                    // Roll probability for each optional sound
+                    let mut rng = rand::thread_rng();
+                    let mut selected_optional: Vec<&SoundMix> = optional
+                        .into_iter()
+                        .filter(|s| {
+                            let prob = s.probability.unwrap_or(1.0);
+                            rng.gen::<f32>() < prob
+                        })
+                        .collect();
+
+                    // Shuffle so max_sounds cap doesn't always drop the same sounds
+                    use rand::seq::SliceRandom;
+                    selected_optional.shuffle(&mut rng);
+
+                    // Enforce max_sounds: count 1 per pool (not per track), plus non-pooled sounds
+                    let max = atmosphere.max_sounds.unwrap_or(u32::MAX) as usize;
+                    let mut total_started = 0usize;
+
+                    // Start required non-pooled sounds first (always play, up to max)
+                    for sound in &required {
+                        if total_started >= max { break; }
+                        let max_duration = sound.max_duration;
+                        let fade_duration = sound.fade_duration;
+                        tracing::info!(
+                            "Starting atmosphere sound: {} at volume {}{}{}",
+                            sound.url,
+                            sound.volume,
+                            max_duration.map_or(String::new(), |d| format!(" (max {}s)", d)),
+                            fade_duration.map_or(String::new(), |d| format!(" (fade {}s)", d))
+                        );
+                        if let Err(e) = self
+                            .atmosphere_engine
+                            .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
+                        {
+                            tracing::warn!("Failed to start atmosphere sound: {}", e);
+                        } else {
+                            self.active_atmosphere_urls.insert(sound.url.clone());
+                            self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
+                            total_started += 1;
+                        }
+                    }
+
+                    // Start pools (each pool counts as 1 sound toward max_sounds)
+                    for (pool_name, pool_sounds) in &pools {
+                        if total_started >= max { break; }
+                        let sounds_with_volumes: Vec<(String, u8)> = pool_sounds
+                            .iter()
+                            .map(|s| (s.url.clone(), s.volume))
+                            .collect();
+
+                        // Track all pool URLs in atmosphere_volumes for UI display
+                        for s in pool_sounds {
+                            self.atmosphere_volumes.insert(s.url.clone(), s.volume);
+                        }
+
+                        self.atmosphere_engine.register_pool(pool_name, sounds_with_volumes);
+                        if let Err(e) = self.atmosphere_engine.start_pool(pool_name) {
+                            tracing::warn!("Failed to start pool '{}': {}", pool_name, e);
+                        } else {
+                            // Add all pool URLs to active set (the monitor will manage which is playing)
+                            for s in pool_sounds {
+                                self.active_atmosphere_urls.insert(s.url.clone());
+                            }
+                            total_started += 1;
+                        }
+                    }
+
+                    // Then start selected optional sounds (up to max)
+                    for sound in &selected_optional {
+                        if total_started >= max { break; }
+                        let max_duration = sound.max_duration;
+                        let fade_duration = sound.fade_duration;
+                        tracing::info!(
+                            "Starting optional atmosphere sound: {} at volume {}{}{} (prob: {})",
+                            sound.url,
+                            sound.volume,
+                            max_duration.map_or(String::new(), |d| format!(" (max {}s)", d)),
+                            fade_duration.map_or(String::new(), |d| format!(" (fade {}s)", d)),
+                            sound.probability.unwrap_or(1.0)
+                        );
+                        if let Err(e) = self
+                            .atmosphere_engine
+                            .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
+                        {
+                            tracing::warn!("Failed to start atmosphere sound: {}", e);
+                        } else {
+                            self.active_atmosphere_urls.insert(sound.url.clone());
+                            self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
+                            total_started += 1;
+                        }
+                    }
+
                     tracing::info!(
-                        "Starting optional atmosphere sound: {} at volume {}{}{} (prob: {})",
-                        sound.url,
-                        sound.volume,
-                        max_duration.map_or(String::new(), |d| format!(" (max {}s)", d)),
-                        fade_duration.map_or(String::new(), |d| format!(" (fade {}s)", d)),
-                        sound.probability.unwrap_or(1.0)
+                        "Started {}/{} atmosphere sounds for {} ({} required, {} pools, {} optional)",
+                        total_started, atmosphere.mix.len(), config.name,
+                        required.len(), pools.len(),
+                        total_started.saturating_sub(required.len()).saturating_sub(pools.len())
                     );
-                    if let Err(e) = self
-                        .atmosphere_engine
-                        .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
-                    {
-                        tracing::warn!("Failed to start atmosphere sound: {}", e);
-                    } else {
-                        self.active_atmosphere_urls.insert(sound.url.clone());
-                        self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
-                        total_started += 1;
-                    }
                 }
-
-                tracing::info!(
-                    "Started {}/{} atmosphere sounds for {} ({} required, {} optional)",
-                    total_started, atmosphere.mix.len(), config.name,
-                    required.len(), total_started.saturating_sub(required.len())
-                );
             }
         } else {
             tracing::info!("No atmosphere config for {}", config.name);

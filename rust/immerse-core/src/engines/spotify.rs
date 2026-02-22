@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use rand::Rng;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -158,10 +159,18 @@ impl SpotifyEngine {
     async fn oauth_flow(&self) -> Result<AccessToken> {
         let scopes = "user-modify-playback-state user-read-playback-state user-read-currently-playing";
 
-        // Generate state for CSRF protection
-        let state: String = (0..16)
-            .map(|_| rand::random::<char>())
-            .collect();
+        // Generate state for CSRF protection (ASCII alphanumeric only —
+        // Spotify rejects non-ASCII state parameters with "illegal state parameter").
+        // Block scope ensures ThreadRng (which is !Send) is dropped before any .await.
+        let state: String = {
+            let mut rng = rand::thread_rng();
+            (0..32)
+                .map(|_| {
+                    let idx = rng.gen_range(0..36u8);
+                    if idx < 10 { (b'0' + idx) as char } else { (b'a' + idx - 10) as char }
+                })
+                .collect()
+        };
 
         // Build authorization URL
         let auth_url = format!(
@@ -603,6 +612,13 @@ impl SpotifyEngine {
     /// Returns whether Spotify is configured.
     pub fn is_configured(&self) -> bool {
         self.config.is_configured()
+    }
+
+    /// Returns whether Spotify has a cached, non-expired access token on disk.
+    /// This indicates auth has completed successfully at least once recently.
+    /// Sync — safe to call from any context without holding async locks.
+    pub fn has_cached_token(&self) -> bool {
+        self.load_cached_token().map_or(false, |t| !t.is_expired())
     }
 }
 

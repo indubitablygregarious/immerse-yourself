@@ -174,6 +174,10 @@ pub struct AtmosphereConfig {
     /// Maximum sounds to play (optional).
     #[serde(default)]
     pub max_sounds: Option<u32>,
+    /// When true, skip atmosphere if Spotify is connected and the environment has a Spotify URI.
+    /// This lets battle environments fall back to built-in CC-BY music only when Spotify is unavailable.
+    #[serde(default)]
+    pub spotify_fallback: Option<bool>,
     /// List of ambient sound mixes to play.
     #[serde(default)]
     pub mix: Vec<SoundMix>,
@@ -203,6 +207,10 @@ pub struct SoundMix {
     /// over this many seconds before stopping (used with max_duration for smooth transitions).
     #[serde(default)]
     pub fade_duration: Option<u32>,
+    /// Pool name for mutually exclusive sounds. Sounds with the same pool name
+    /// play one at a time — when one finishes, another from the pool starts randomly.
+    #[serde(default)]
+    pub pool: Option<String>,
 }
 
 fn default_volume() -> u8 {

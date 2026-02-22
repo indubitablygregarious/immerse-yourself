@@ -18,15 +18,18 @@ engines:
     context_uri: "spotify:playlist:6FohP6m1ipvNjgllOH4HLt"
 
   atmosphere:
-    enabled: false
-    # Battle music playlist (blocked on playlist mode — see strategy issue)
-    # These should play 1 at a time, only when Spotify is not configured
-    # - url: "https://freesound.org/people/joshuaempyre/sounds/250856/"  # Epic Orchestra Loop (CC-BY, 0:45)
-    #   volume: 65
-    # - url: "https://freesound.org/people/humanoide9000/sounds/685841/"  # Cinematic Battle Music (CC-BY, 1:32)
-    #   volume: 60
-    # - url: "https://freesound.org/people/SunixMuz/sounds/767836/"  # Battle of Avalon (CC-BY)
-    #   volume: 60
+    enabled: true
+    spotify_fallback: true
+    mix:
+      - url: "https://freesound.org/people/joshuaempyre/sounds/250856/"
+        volume: 65
+        pool: music
+      - url: "https://freesound.org/people/humanoide9000/sounds/685841/"
+        volume: 60
+        pool: music
+      - url: "https://freesound.org/people/SunixMuz/sounds/767836/"
+        volume: 60
+        pool: music
 
   lights:
     enabled: true

@@ -14,9 +14,19 @@ use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::PlaybackState;
 use kira::Tween;
 
+use rand::Rng;
+
 use crate::download_queue::DownloadQueue;
 use crate::engines::audio_output::{volume_to_db, with_audio_manager};
 use crate::error::{Error, Result};
+
+/// Configuration for a pool of mutually exclusive sounds.
+struct PoolConfig {
+    /// All URLs in this pool.
+    urls: Vec<String>,
+    /// Volume for each URL.
+    volumes: HashMap<String, u8>,
+}
 
 /// Atmosphere engine for playing looping ambient sounds.
 pub struct AtmosphereEngine {
@@ -25,6 +35,8 @@ pub struct AtmosphereEngine {
     download_queue: Arc<DownloadQueue>,
     /// Generation counter - incremented on stop_all() to invalidate pending download callbacks.
     generation: Arc<AtomicU64>,
+    /// Active sound pools — keyed by pool name. Monitor threads exit when their pool is removed.
+    active_pools: Arc<Mutex<HashMap<String, PoolConfig>>>,
 }
 
 /// A playing atmosphere sound backed by a kira StaticSoundHandle.
@@ -57,6 +69,7 @@ impl AtmosphereEngine {
             active_sounds: Arc::new(Mutex::new(HashMap::new())),
             download_queue,
             generation: Arc::new(AtomicU64::new(0)),
+            active_pools: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -96,7 +109,7 @@ impl AtmosphereEngine {
 
         // Check if cached first
         if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, fade_duration, max_duration);
+            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, true, fade_duration, max_duration);
         }
 
         // Not cached - queue download with callback to start playback
@@ -113,7 +126,7 @@ impl AtmosphereEngine {
 
             match result {
                 Ok(path) => {
-                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, fade_duration, max_duration) {
+                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, true, fade_duration, max_duration) {
                         tracing::warn!("Failed to start atmosphere sound after download: {}", e);
                     }
                 }
@@ -124,6 +137,105 @@ impl AtmosphereEngine {
         });
 
         tracing::info!("Queued atmosphere sound for download: {} (generation {})", url, start_generation);
+        Ok(())
+    }
+
+    /// Registers a pool of mutually exclusive sounds. Call `start_pool` afterward to begin playback.
+    pub fn register_pool(&self, pool_name: &str, sounds: Vec<(String, u8)>) {
+        let mut volumes = HashMap::new();
+        let mut urls = Vec::new();
+        for (url, vol) in sounds {
+            volumes.insert(url.clone(), vol);
+            urls.push(url);
+        }
+        let count = urls.len();
+        if let Ok(mut pools) = self.active_pools.lock() {
+            pools.insert(pool_name.to_string(), PoolConfig { urls, volumes });
+        }
+        tracing::info!("Registered pool '{}' with {} sounds", pool_name, count);
+    }
+
+    /// Starts a pool: picks a random sound, plays it (non-looping), and spawns a monitor
+    /// thread that starts the next sound when the current one finishes.
+    pub fn start_pool(&self, pool_name: &str) -> Result<()> {
+        let (url, volume) = {
+            let pools = self.active_pools.lock().map_err(|_| {
+                Error::AtmospherePlayback("Failed to acquire pool lock".to_string())
+            })?;
+            let pool = pools.get(pool_name).ok_or_else(|| {
+                Error::AtmospherePlayback(format!("Pool '{}' not registered", pool_name))
+            })?;
+            let mut rng = rand::thread_rng();
+            let idx = rng.gen_range(0..pool.urls.len());
+            let url = pool.urls[idx].clone();
+            let volume = pool.volumes.get(&url).copied().unwrap_or(70);
+            (url, volume)
+        };
+
+        // Start the first track (non-looping)
+        self.start_single_no_loop(&url, volume)?;
+
+        // Spawn monitor thread
+        let pool_name = pool_name.to_string();
+        let active_sounds = Arc::clone(&self.active_sounds);
+        let active_pools = Arc::clone(&self.active_pools);
+        let generation = Arc::clone(&self.generation);
+        let download_queue = Arc::clone(&self.download_queue);
+        let start_generation = self.generation.load(Ordering::SeqCst);
+        let current_url = url;
+
+        std::thread::Builder::new()
+            .name(format!("pool-monitor-{}", pool_name))
+            .spawn(move || {
+                pool_monitor_loop(
+                    &pool_name,
+                    current_url,
+                    start_generation,
+                    &active_sounds,
+                    &active_pools,
+                    &generation,
+                    &download_queue,
+                );
+            })
+            .map_err(|e| Error::AtmospherePlayback(format!("Failed to spawn pool monitor: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Starts a single sound without looping (plays once then stops).
+    /// Used for pool sounds — the pool monitor detects when it finishes and starts the next one.
+    fn start_single_no_loop(&self, url: &str, volume: u8) -> Result<()> {
+        // Check if already playing
+        {
+            let sounds = self.active_sounds.lock().map_err(|_| {
+                Error::AtmospherePlayback("Failed to acquire lock".to_string())
+            })?;
+            if sounds.contains_key(url) {
+                return Ok(());
+            }
+        }
+
+        let url_owned = url.to_string();
+        let active_sounds = Arc::clone(&self.active_sounds);
+
+        // Must be cached (pool sounds are pre-bundled)
+        if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
+            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, false, None, None);
+        }
+
+        // Queue download as fallback
+        let start_generation = self.generation.load(Ordering::SeqCst);
+        let generation = Arc::clone(&self.generation);
+        self.download_queue.enqueue(url, move |result| {
+            let current_generation = generation.load(Ordering::SeqCst);
+            if current_generation != start_generation {
+                return;
+            }
+            if let Ok(path) = result {
+                let _ = start_playback_internal(&url_owned, &path, volume, &active_sounds, false, None, None);
+            }
+        });
+
         Ok(())
     }
 
@@ -142,9 +254,15 @@ impl AtmosphereEngine {
     }
 
     /// Stops all playing sounds and invalidates pending download callbacks.
+    /// Also clears all active pools so monitor threads exit.
     pub fn stop_all(&self) -> usize {
         let old_gen = self.generation.fetch_add(1, Ordering::SeqCst);
         tracing::info!("stop_all: incremented generation from {} to {}", old_gen, old_gen + 1);
+
+        // Clear pools first so monitor threads see the pool gone and exit
+        if let Ok(mut pools) = self.active_pools.lock() {
+            pools.clear();
+        }
 
         let mut count = 0;
 
@@ -161,8 +279,22 @@ impl AtmosphereEngine {
 
     /// Stops all playing sounds EXCEPT those in the keep set.
     /// Returns the number of sounds stopped.
+    /// Also removes pools whose URLs are not in the keep set.
     pub fn stop_all_except(&self, keep_urls: &std::collections::HashSet<String>) -> usize {
         self.generation.fetch_add(1, Ordering::SeqCst);
+
+        // Remove pools whose URLs aren't all in the keep set
+        if let Ok(mut pools) = self.active_pools.lock() {
+            let pools_to_remove: Vec<String> = pools.iter()
+                .filter(|(_, pool)| !pool.urls.iter().any(|u| keep_urls.contains(u)))
+                .map(|(name, _)| name.clone())
+                .collect();
+            for name in pools_to_remove {
+                pools.remove(&name);
+                tracing::info!("Removed pool '{}' (not in keep set)", name);
+            }
+        }
+
         let mut count = 0;
         if let Ok(mut sounds) = self.active_sounds.lock() {
             let to_remove: Vec<String> = sounds.keys()
@@ -306,17 +438,18 @@ impl AtmosphereEngine {
 
 /// Internal function to start playback via the shared kira AudioManager.
 ///
-/// Loads the file into a StaticSoundData, sets it to loop, plays it through the
-/// global AudioManager, and stores the handle for volume/stop control.
+/// Loads the file into a StaticSoundData, optionally sets it to loop, plays it
+/// through the global AudioManager, and stores the handle for volume/stop control.
 fn start_playback_internal(
     url: &str,
     file_path: &Path,
     volume: u8,
     active_sounds: &Arc<Mutex<HashMap<String, ActiveSound>>>,
+    looping: bool,
     fade_duration: Option<u32>,
     max_duration: Option<u32>,
 ) -> Result<()> {
-    // Load and configure sound — loop over entire file
+    // Load and configure sound
     let sound_data = match StaticSoundData::from_file(file_path) {
         Ok(data) => data,
         Err(e) => {
@@ -328,9 +461,11 @@ fn start_playback_internal(
             return Ok(());
         }
     };
-    let sound_data = sound_data
-        .loop_region(..)
-        .volume(volume_to_db(volume));
+    let sound_data = if looping {
+        sound_data.loop_region(..).volume(volume_to_db(volume))
+    } else {
+        sound_data.volume(volume_to_db(volume))
+    };
 
     // Play via shared AudioManager
     let handle = with_audio_manager(|mgr| mgr.play(sound_data))
@@ -416,6 +551,96 @@ fn start_playback_internal(
     }
 
     Ok(())
+}
+
+/// Pool monitor loop — runs on a background thread, polls for track completion,
+/// and starts the next random track from the pool.
+fn pool_monitor_loop(
+    pool_name: &str,
+    mut current_url: String,
+    start_generation: u64,
+    active_sounds: &Arc<Mutex<HashMap<String, ActiveSound>>>,
+    active_pools: &Arc<Mutex<HashMap<String, PoolConfig>>>,
+    generation: &Arc<AtomicU64>,
+    download_queue: &Arc<DownloadQueue>,
+) {
+    tracing::info!("Pool monitor started for '{}', playing: {}", pool_name, current_url);
+
+    loop {
+        std::thread::sleep(Duration::from_millis(1500));
+
+        // Check generation — if changed, environment was switched
+        if generation.load(Ordering::SeqCst) != start_generation {
+            tracing::info!("Pool monitor '{}' exiting: generation changed", pool_name);
+            return;
+        }
+
+        // Check if pool still exists
+        let pool_info = {
+            let pools = match active_pools.lock() {
+                Ok(p) => p,
+                Err(_) => return,
+            };
+            match pools.get(pool_name) {
+                Some(pool) => Some((pool.urls.clone(), pool.volumes.clone())),
+                None => None,
+            }
+        };
+        let (urls, volumes) = match pool_info {
+            Some(info) => info,
+            None => {
+                tracing::info!("Pool monitor '{}' exiting: pool removed", pool_name);
+                return;
+            }
+        };
+
+        // Check if current track is still playing
+        let is_stopped = {
+            let sounds = match active_sounds.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            match sounds.get(&current_url) {
+                Some(active) => matches!(active.handle.state(), PlaybackState::Stopped),
+                None => true, // Already removed
+            }
+        };
+
+        if !is_stopped {
+            continue;
+        }
+
+        // Current track finished — remove it from active_sounds
+        if let Ok(mut sounds) = active_sounds.lock() {
+            sounds.remove(&current_url);
+        }
+        tracing::info!("Pool '{}': track finished: {}", pool_name, current_url);
+
+        // Pick next track (different from current if possible)
+        let mut rng = rand::thread_rng();
+        let next_url = if urls.len() > 1 {
+            let other_urls: Vec<&String> = urls.iter().filter(|u| **u != current_url).collect();
+            other_urls[rng.gen_range(0..other_urls.len())].clone()
+        } else {
+            urls[0].clone()
+        };
+        let volume = volumes.get(&next_url).copied().unwrap_or(70);
+
+        // Start next track (non-looping)
+        if let Some(cached_path) = download_queue.enqueue_or_get_cached(&next_url) {
+            if let Err(e) = start_playback_internal(&next_url, &cached_path, volume, active_sounds, false, None, None) {
+                tracing::warn!("Pool '{}': failed to start next track: {}", pool_name, e);
+                return;
+            }
+        } else {
+            tracing::warn!("Pool '{}': track not cached, skipping: {}", pool_name, next_url);
+            // Try again next iteration with another track
+            continue;
+        }
+
+        tracing::info!("Pool '{}': started next track: {} at volume {}%", pool_name, next_url, volume);
+        current_url = next_url;
+    }
 }
 
 impl Drop for AtmosphereEngine {
@@ -504,6 +729,7 @@ mod tests {
             &cache_dir.join("sound_a.wav"),
             70,
             &active_sounds,
+            true,
             None,
             None,
         )
@@ -514,6 +740,7 @@ mod tests {
             &cache_dir.join("sound_b.wav"),
             50,
             &active_sounds,
+            true,
             None,
             None,
         )
@@ -524,6 +751,7 @@ mod tests {
             &cache_dir.join("sound_c.wav"),
             30,
             &active_sounds,
+            true,
             None,
             None,
         )

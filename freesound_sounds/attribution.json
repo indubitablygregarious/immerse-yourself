@@ -643,5 +643,56 @@
     "used_in": [
       "Town"
     ]
+  },
+  {
+    "id": 250856,
+    "name": "Epic Orchestra - LOOP.wav",
+    "author": "joshuaempyre",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "url": "https://freesound.org/people/joshuaempyre/sounds/250856/",
+    "freesound_url": "https://freesound.org/people/joshuaempyre/sounds/250856/",
+    "duration": 45.7,
+    "local_path": "freesound_sounds/cc-by/joshuaempyre_250856_Epic_Orchestra_-_LOOP.wav.mp3",
+    "used_in": [
+      "Battle Environment",
+      "Battle Dungeon",
+      "Battle Forest",
+      "Battle Desert",
+      "Battle Water"
+    ]
+  },
+  {
+    "id": 685841,
+    "name": "Cinematic Battle Music (Star Wars Style)",
+    "author": "humanoide9000",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "url": "https://freesound.org/people/humanoide9000/sounds/685841/",
+    "freesound_url": "https://freesound.org/people/humanoide9000/sounds/685841/",
+    "duration": 92.4,
+    "local_path": "freesound_sounds/cc-by/humanoide9000_685841_Cinematic_Battle_Music_(Star_Wars_Style).mp3",
+    "used_in": [
+      "Battle Environment",
+      "Battle Dungeon",
+      "Battle Forest",
+      "Battle Desert",
+      "Battle Water"
+    ]
+  },
+  {
+    "id": 767836,
+    "name": "SunixMuz - Battle Of Avalon (Opening, trailer, epic music, Free CCBY)",
+    "author": "SunixMuz",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "url": "https://freesound.org/people/SunixMuz/sounds/767836/",
+    "freesound_url": "https://freesound.org/people/SunixMuz/sounds/767836/",
+    "duration": 68.8,
+    "local_path": "freesound_sounds/cc-by/SunixMuz_767836_SunixMuz_-_Battle_Of_Avalon_(Opening,_trailer,_epic_music,_Free_CCBY).mp3",
+    "used_in": [
+      "Battle Environment",
+      "Battle Dungeon",
+      "Battle Forest",
+      "Battle Desert",
+      "Battle Water"
+    ]
   }
 ]

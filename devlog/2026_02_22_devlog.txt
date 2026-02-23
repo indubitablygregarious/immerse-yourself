@@ -1,0 +1,19 @@
+# 2026-02-22
+
+Big day — storefronts are live and the product is for sale.
+
+Set up both itch.io pages: the free app at immerseyourselfent.itch.io/immerse-yourself (v0.4.2 builds for all 3 platforms uploaded) and the Sacred & Arcane premium pack at immerseyourselfent.itch.io/sacred-arcane ($10.99). Payhip was already set up from earlier — Sacred & Arcane at payhip.com/b/V0vc7 with cover image uploaded. Chose "Direct to you" payment mode on itch.io so payments come straight through rather than sitting in itch's queue.
+
+Created branding assets: photographed the forest painting, made a cover image with "Immerse Yourself" calligraphy overlay in GIMP (white text, black border), created a header crop, and styled the itch.io page with the painting as background and a bright green header (#55d61b). All image files (JPG, PNG, XCF source) committed to the marketing repo.
+
+Tested the full purchase flow on Payhip — bought Sacred & Arcane, downloaded the ZIP, extracted it. Contents verified: 6 env_conf (wizard_tower, monastery, throne_room, temple, sacred_grove, summoning_circle), sound_conf, sounds, and 40 CC0 freesound files with manifest. Everything checks out.
+
+Cross-linked the storefronts — itch.io pages reference Payhip and vice versa. No ToS issues; neither platform has exclusivity clauses. Tagged itch.io pages for TTRPG discovery.
+
+Updated the Sacred & Arcane product listing copy — replaced Chill and Short Rest (which were cut from the pack) with Sacred Grove and Summoning Circle. Updated descriptions in both the Payhip and itch.io sections of the listing, plus the landing page index.astro. Also added a full environment table to the Starter Pack listing so buyers can see what 20 environments they're getting.
+
+Updated the landing page (index.astro) earlier this week: Sacred & Arcane product card with correct $10.99 pricing, WiZ branding (not Hue), Spotify integration feature section, Starter Pack pointing to GitHub releases instead of itch.io. Landing page deployment deferred to week 3 — waiting on the demo video.
+
+Closed out strategy issues: #5 (storefronts — all done), #43 (LFS bandwidth — fixed with v0.4.2), #44 (branding — all images created and uploaded). Moved #6 (landing page deploy) to week-3 label since it's blocked on the demo video.
+
+Week 2 is essentially complete. All the hard stuff is done — storefronts live, product tested, branding in place, marketing copy updated. What's left for week 3: demo video (#7), landing page deployment (#6), and environment polish (#37).

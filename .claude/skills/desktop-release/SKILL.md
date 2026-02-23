@@ -18,7 +18,7 @@ version bump, git tag, push, and CI monitoring.
 Run the script in dry-run mode first to show what will happen:
 
 ```bash
-cd /home/pete/code/immerse-yourself && python3 scripts/desktop-release.py --dry-run
+cd ~/iye/immerse-yourself && python3 scripts/desktop-release.py --dry-run
 ```
 
 Show the user the current version and what the new version will be. If the user provided arguments (like `--minor`, `--major`, or `--version X.Y.Z`), pass them through.
@@ -28,7 +28,7 @@ Show the user the current version and what the new version will be. If the user 
 Before cutting the release, generate release notes from all commits since the last tag:
 
 ```bash
-cd /home/pete/code/immerse-yourself && git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"- %s" --no-merges
+cd ~/iye/immerse-yourself && git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"- %s" --no-merges
 ```
 
 Compose human-readable release notes from these commits:
@@ -42,7 +42,7 @@ Compose human-readable release notes from these commits:
 If the user approves, run the actual release. Pass through any arguments the user specified (e.g., `/desktop-release --minor`).
 
 ```bash
-cd /home/pete/code/immerse-yourself && python3 scripts/desktop-release.py
+cd ~/iye/immerse-yourself && python3 scripts/desktop-release.py
 ```
 
 The script will:
@@ -59,7 +59,7 @@ The script will:
 Once the release is created on GitHub, update it with the release notes:
 
 ```bash
-cd /home/pete/code/immerse-yourself && gh release edit vX.Y.Z --notes "RELEASE_NOTES_HERE"
+cd ~/iye/immerse-yourself && gh release edit vX.Y.Z --notes "RELEASE_NOTES_HERE"
 ```
 
 Use a heredoc for multi-line notes:

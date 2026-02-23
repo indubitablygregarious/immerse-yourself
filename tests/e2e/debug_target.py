@@ -12,8 +12,8 @@ import time
 import urllib.request
 import websockets
 
-BINARY = "/home/pete/immerse_yourself/rust/target/release/immerse-tauri"
-PROJECT_DIR = "/home/pete/immerse_yourself"
+BINARY = "~/iye/immerse_yourself/rust/target/release/immerse-tauri"
+PROJECT_DIR = "~/iye/immerse_yourself"
 
 env = os.environ.copy()
 env["WEBKIT_INSPECTOR_HTTP_SERVER"] = "127.0.0.1:3030"
@@ -212,7 +212,7 @@ print(f"   Result: {json.dumps(result)[:500] if result else 'None'}")
 
 # Take screenshot
 print("\n8. Taking screenshot...")
-screenshot_path = "/home/pete/immerse_yourself/tests/e2e/output/debug_screenshot.png"
+screenshot_path = "~/iye/immerse_yourself/tests/e2e/output/debug_screenshot.png"
 os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
 subprocess.run(["import", "-window", "root", screenshot_path], capture_output=True, timeout=10)
 if os.path.exists(screenshot_path):

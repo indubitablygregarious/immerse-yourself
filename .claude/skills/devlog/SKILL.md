@@ -25,9 +25,9 @@ Fetch commits from **both** the product repo and the private strategy repo:
 git log --after="YYYY-MM-DDT00:00:00" --before="YYYY-MM-DDT23:59:59" --format="%H %ai %s" --stat
 ```
 
-**Strategy repo** (`~/code/immerse-yourself-strategy/`):
+**Strategy repo** (`~/iye/immerse-yourself-strategy/`):
 ```bash
-cd ~/code/immerse-yourself-strategy && git log --after="YYYY-MM-DDT00:00:00" --before="YYYY-MM-DDT23:59:59" --format="%H %ai %s" --stat
+cd ~/iye/immerse-yourself-strategy && git log --after="YYYY-MM-DDT00:00:00" --before="YYYY-MM-DDT23:59:59" --format="%H %ai %s" --stat
 ```
 
 Replace `YYYY-MM-DD` with the target date.

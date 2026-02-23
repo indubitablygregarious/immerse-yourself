@@ -18,16 +18,16 @@ Use the Task tool to launch all 3 agents simultaneously with `run_in_background:
 
 Prompt the agent with:
 
-> You are a desktop build verification agent for a Tauri (Rust + React/TypeScript) application at /home/pete/code/immerse_yourself2.
+> You are a desktop build verification agent for a Tauri (Rust + React/TypeScript) application at ~/iye/immerse-yourself.
 >
 > CRITICAL: Never run `cargo` directly. Always use the Makefile targets which use the correct Rust 1.89 wrapper.
 >
 > Your task: Run the full desktop build and test pipeline, iterating up to 5 times if there are failures. For each iteration, identify the root cause, fix it, and retry.
 >
 > Steps:
-> 1. Run `make check` from /home/pete/code/immerse_yourself2 to verify Rust compilation
+> 1. Run `make check` from ~/iye/immerse-yourself to verify Rust compilation
 > 2. Run `make test` to run Rust tests
-> 3. Run `npx tsc --noEmit` in /home/pete/code/immerse_yourself2/rust/immerse-tauri/ui/ for TypeScript type checking
+> 3. Run `npx tsc --noEmit` in ~/iye/immerse-yourself/rust/immerse-tauri/ui/ for TypeScript type checking
 > 4. If any step fails, analyze the error, attempt a fix, and retry (up to 5 iterations total)
 >
 > For each iteration, report:
@@ -45,7 +45,7 @@ Prompt the agent with:
 
 Prompt the agent with:
 
-> You are an iOS build verification agent for a Tauri 2.x application at /home/pete/code/immerse_yourself2.
+> You are an iOS build verification agent for a Tauri 2.x application at ~/iye/immerse-yourself.
 >
 > Since we're on Linux, you cannot run actual iOS builds. Instead, perform static analysis of the iOS build pipeline to find potential issues BEFORE they hit CI/macOS.
 >
@@ -69,7 +69,7 @@ Prompt the agent with:
 
 Prompt the agent with:
 
-> You are a CI/CD validation agent for the project at /home/pete/code/immerse_yourself2.
+> You are a CI/CD validation agent for the project at ~/iye/immerse-yourself.
 >
 > Validate ALL GitHub Actions workflow files for correctness, security, and best practices. Iterate up to 5 passes looking for different categories of issues.
 >

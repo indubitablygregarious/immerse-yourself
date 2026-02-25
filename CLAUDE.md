@@ -59,6 +59,12 @@ tests/
 Makefile                  # Build commands (MUST use these, not cargo directly)
 ```
 
+## ABSOLUTE RULE: Rust 1.89 Toolchain is Pinned
+
+This project is pinned to **Rust 1.89** (`cargo-1.89`). Do NOT upgrade, change, or substitute the Rust version. Do NOT replace `cargo-1.89` references with plain `cargo`, `rustup run`, or direct paths like `/usr/lib/rust-1.89/bin/cargo`. Do NOT add `rust-toolchain.toml`, modify `Cargo.toml` edition/rust-version fields, or change Makefile `CARGO_189`/`RUSTC_189` paths to use a different version. The pinned version is intentional and changing it will break builds across all platforms (desktop, iOS, CI).
+
+If `cargo-1.89` is not installed, tell the user to install Rust 1.89 — do not work around it.
+
 ## Build System
 
 **IMPORTANT**: Always use Makefile targets for building and testing. The system has Rust 1.75 as default but Tauri requires Rust 1.89. The Makefile creates a wrapper that uses the correct version.

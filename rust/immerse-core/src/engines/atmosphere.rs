@@ -245,20 +245,16 @@ impl AtmosphereEngine {
     /// Starts a retrigger sound: plays the first occurrence and spawns a monitor thread
     /// that detects completion, waits a random delay, then retriggers with variation.
     pub fn start_retrigger(&self, url: &str) -> Result<()> {
-        let volume = {
+        {
             let retriggers = self.active_retriggers.lock().map_err(|_| {
                 Error::AtmospherePlayback("Failed to acquire retrigger lock".to_string())
             })?;
-            let entry = retriggers.get(url).ok_or_else(|| {
+            retriggers.get(url).ok_or_else(|| {
                 Error::AtmospherePlayback(format!("Retrigger '{}' not registered", url))
             })?;
-            entry.base_volume
-        };
+        }
 
-        // Start the first occurrence (non-looping, no pitch variance on first play)
-        self.start_single_no_loop(url, volume)?;
-
-        // Spawn monitor thread
+        // Spawn monitor thread (initial play is deferred — waits first)
         let url_owned = url.to_string();
         let active_sounds = Arc::clone(&self.active_sounds);
         let active_retriggers = Arc::clone(&self.active_retriggers);
@@ -762,8 +758,9 @@ fn vary_volume(base: u8, variance: u8) -> u8 {
     (varied.round() as u8).clamp(1, 100)
 }
 
-/// Retrigger monitor loop — runs on a background thread, polls for sound completion,
-/// waits a random delay, then retriggers the sound with volume and pitch variation.
+/// Retrigger monitor loop — runs on a background thread. Waits a random delay
+/// before each trigger (including the first), then plays the sound with volume
+/// and pitch variation, polls for completion, and repeats.
 fn retrigger_monitor_loop(
     url: &str,
     start_generation: u64,
@@ -775,16 +772,7 @@ fn retrigger_monitor_loop(
     tracing::info!("Retrigger monitor started for '{}'", url);
 
     loop {
-        // Poll every 500ms — short sounds need quick completion detection
-        std::thread::sleep(Duration::from_millis(500));
-
-        // Check generation — if changed, environment was switched
-        if generation.load(Ordering::SeqCst) != start_generation {
-            tracing::info!("Retrigger monitor '{}' exiting: generation changed", url);
-            return;
-        }
-
-        // Check if retrigger entry still exists
+        // --- Phase 1: Read config ---
         let entry_info = {
             let retriggers = match active_retriggers.lock() {
                 Ok(r) => r,
@@ -807,41 +795,18 @@ fn retrigger_monitor_loop(
             }
         };
 
-        // Check if current playback is still going
-        let is_stopped = {
-            let sounds = match active_sounds.lock() {
-                Ok(s) => s,
-                Err(_) => return,
-            };
-            match sounds.get(url) {
-                Some(active) => matches!(active.handle.state(), PlaybackState::Stopped),
-                None => true, // Already removed
-            }
-        };
-
-        if !is_stopped {
-            continue;
-        }
-
-        // Sound finished — remove from active_sounds
-        if let Ok(mut sounds) = active_sounds.lock() {
-            sounds.remove(url);
-        }
-        tracing::debug!("Retrigger '{}': playback finished, waiting before retrigger", url);
-
-        // Wait random delay in 1-second increments (checking generation each second)
+        // --- Phase 2: Wait random delay before triggering ---
         let mut rng = rand::thread_rng();
         let delay_secs = rng.gen_range(min_delay..=max_delay);
+        tracing::debug!("Retrigger '{}': waiting {}s before trigger", url, delay_secs);
         for _ in 0..delay_secs {
             std::thread::sleep(Duration::from_secs(1));
 
-            // Check generation during wait
             if generation.load(Ordering::SeqCst) != start_generation {
                 tracing::info!("Retrigger monitor '{}' exiting during delay: generation changed", url);
                 return;
             }
 
-            // Check if entry still exists during wait
             if let Ok(retriggers) = active_retriggers.lock() {
                 if !retriggers.contains_key(url) {
                     tracing::info!("Retrigger monitor '{}' exiting during delay: entry removed", url);
@@ -850,14 +815,14 @@ fn retrigger_monitor_loop(
             }
         }
 
-        // Force-stop any lingering handle before retriggering (cut overlap)
+        // --- Phase 3: Play with variation ---
+        // Force-stop any lingering handle before triggering
         if let Ok(mut sounds) = active_sounds.lock() {
             if let Some(mut active) = sounds.remove(url) {
                 active.handle.stop(Tween::default());
             }
         }
 
-        // Calculate varied volume and pitch
         let varied_volume = vary_volume(base_volume, volume_variance);
         let pitch = if pitch_variance > 0.0 {
             let mut rng = rand::thread_rng();
@@ -866,7 +831,6 @@ fn retrigger_monitor_loop(
             None
         };
 
-        // Retrigger playback
         if let Some(cached_path) = download_queue.enqueue_or_get_cached(url) {
             if let Err(e) = start_playback_internal(url, &cached_path, varied_volume, active_sounds, false, None, None, pitch, start_offset) {
                 tracing::warn!("Retrigger '{}': failed to start playback: {}", url, e);
@@ -878,12 +842,47 @@ fn retrigger_monitor_loop(
         }
 
         tracing::info!(
-            "Retrigger '{}': retriggered at volume {}%{} (waited {}s)",
+            "Retrigger '{}': triggered at volume {}%{} (waited {}s)",
             url,
             varied_volume,
             pitch.map_or(String::new(), |p| format!(", pitch {:+.1}st", p)),
             delay_secs,
         );
+
+        // --- Phase 4: Poll until playback finishes ---
+        loop {
+            std::thread::sleep(Duration::from_millis(500));
+
+            if generation.load(Ordering::SeqCst) != start_generation {
+                tracing::info!("Retrigger monitor '{}' exiting: generation changed", url);
+                return;
+            }
+
+            if let Ok(retriggers) = active_retriggers.lock() {
+                if !retriggers.contains_key(url) {
+                    tracing::info!("Retrigger monitor '{}' exiting: entry removed", url);
+                    return;
+                }
+            }
+
+            let is_stopped = {
+                let sounds = match active_sounds.lock() {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+                match sounds.get(url) {
+                    Some(active) => matches!(active.handle.state(), PlaybackState::Stopped),
+                    None => true,
+                }
+            };
+
+            if is_stopped {
+                if let Ok(mut sounds) = active_sounds.lock() {
+                    sounds.remove(url);
+                }
+                break;
+            }
+        }
     }
 }
 

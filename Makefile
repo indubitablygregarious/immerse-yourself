@@ -1,4 +1,4 @@
-.PHONY: help clean setup dev dev-full build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
+.PHONY: help clean setup dev dev-full sync-content build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
 
 help:
 	@echo "Immerse Yourself - Development Commands"
@@ -6,6 +6,7 @@ help:
 	@echo "Development:"
 	@echo "  make dev             - Start dev server with hot reload"
 	@echo "  make dev-full        - Dev with full content from private repo"
+	@echo "  make sync-content    - Sync private repo content (no build)"
 	@echo "  make build           - Build production application"
 	@echo "  make test            - Run Rust tests (uses Rust 1.89)"
 	@echo "  make check           - Check code compiles (uses Rust 1.89)"
@@ -97,7 +98,10 @@ IMMERSE_PRIVATE_REPO ?= $(HOME)/iye/immerse_yourself
 # User content directory (Linux default)
 USER_CONTENT_DIR ?= $(HOME)/.local/share/com.peterlesko.immerseyourself
 
-dev-full: ## Start dev with all private content loaded
+dev-full: sync-content ## Start dev with all private content loaded
+	$(MAKE) dev
+
+sync-content: ## Copy all private repo content to user content dir (no build)
 	@if [ ! -d "$(IMMERSE_PRIVATE_REPO)/env_conf" ]; then \
 		echo "Error: Private repo not found at $(IMMERSE_PRIVATE_REPO)"; \
 		echo "Set IMMERSE_PRIVATE_REPO to the correct path"; \
@@ -107,8 +111,13 @@ dev-full: ## Start dev with all private content loaded
 	@cp -u $(IMMERSE_PRIVATE_REPO)/env_conf/*.yaml "$(USER_CONTENT_DIR)/env_conf/" 2>/dev/null || true
 	@cp -u $(IMMERSE_PRIVATE_REPO)/sound_conf/*.yaml "$(USER_CONTENT_DIR)/sound_conf/" 2>/dev/null || true
 	@cp -u $(IMMERSE_PRIVATE_REPO)/sounds/* "$(USER_CONTENT_DIR)/sounds/" 2>/dev/null || true
-	@echo "Loaded content from $(IMMERSE_PRIVATE_REPO) into $(USER_CONTENT_DIR)"
-	$(MAKE) dev
+	@if [ -d "$(IMMERSE_PRIVATE_REPO)/freesound_sounds" ]; then \
+		mkdir -p "$(USER_CONTENT_DIR)/freesound_sounds/cc0" "$(USER_CONTENT_DIR)/freesound_sounds/cc-by"; \
+		cp -u $(IMMERSE_PRIVATE_REPO)/freesound_sounds/cc0/* "$(USER_CONTENT_DIR)/freesound_sounds/cc0/" 2>/dev/null || true; \
+		cp -u $(IMMERSE_PRIVATE_REPO)/freesound_sounds/cc-by/* "$(USER_CONTENT_DIR)/freesound_sounds/cc-by/" 2>/dev/null || true; \
+		cp -u "$(IMMERSE_PRIVATE_REPO)/freesound_sounds/manifest.json" "$(USER_CONTENT_DIR)/freesound_sounds/manifest.json" 2>/dev/null || true; \
+	fi
+	@echo "Synced content from $(IMMERSE_PRIVATE_REPO) into $(USER_CONTENT_DIR)"
 
 build:
 	@test -f $(CARGO_TAURI) || $(CARGO) install tauri-cli

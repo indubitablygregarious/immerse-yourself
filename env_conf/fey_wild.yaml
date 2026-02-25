@@ -21,9 +21,23 @@ engines:
     min_sounds: 3
     max_sounds: 5
     mix:
-      # Magical chimes/bells
-      - url: "https://freesound.org/people/bone666138/sounds/198877/"
-        volume: 55
+      # Crystal chime texture
+      - url: "https://freesound.org/people/newlocknew/sounds/772279/"
+        optional: true
+        probability: 0.5
+        volume: 45
+
+      # Crystal chime transition
+      - url: "https://freesound.org/people/newlocknew/sounds/773403/"
+        optional: true
+        probability: 0.5
+        volume: 45
+
+      # Crystal singing bowls
+      - url: "https://freesound.org/people/RedwoodRunner/sounds/460416/"
+        optional: true
+        probability: 0.5
+        volume: 40
 
       # Mystical forest birds
       - url: "https://freesound.org/people/nlux/sounds/620967/"
@@ -40,12 +54,6 @@ engines:
         optional: true
         probability: 0.5
         volume: 40
-
-      # Magical sparkle sounds
-      - url: "https://freesound.org/people/suntemple/sounds/253172/"
-        volume: 35
-        optional: true
-        probability: 0.5
 
       # Gentle stream
       - url: "https://freesound.org/people/designerschoice/sounds/809022/"

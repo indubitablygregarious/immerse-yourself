@@ -35,6 +35,7 @@ struct RetriggerEntry {
     max_delay: u32,
     volume_variance: u8,
     pitch_variance: f32,
+    start_offset: Option<f64>,
 }
 
 /// Atmosphere engine for playing looping ambient sounds.
@@ -87,21 +88,21 @@ impl AtmosphereEngine {
 
     /// Starts playing a single sound.
     pub fn start_single(&self, url: &str, volume: u8) -> Result<()> {
-        self.start_single_with_options(url, volume, None, None)
+        self.start_single_with_options(url, volume, None, None, None)
     }
 
     /// Starts playing a single sound with optional fade-out duration.
     pub fn start_single_with_duration(&self, url: &str, volume: u8, fade_duration: Option<u32>) -> Result<()> {
-        self.start_single_with_options(url, volume, fade_duration, None)
+        self.start_single_with_options(url, volume, fade_duration, None, None)
     }
 
     /// Starts playing a single sound with optional max duration.
     pub fn start_single_with_max_duration(&self, url: &str, volume: u8, max_duration: Option<u32>) -> Result<()> {
-        self.start_single_with_options(url, volume, None, max_duration)
+        self.start_single_with_options(url, volume, None, max_duration, None)
     }
 
     /// Starts playing a single sound with optional fade-out and/or max duration.
-    pub fn start_single_with_options(&self, url: &str, volume: u8, fade_duration: Option<u32>, max_duration: Option<u32>) -> Result<()> {
+    pub fn start_single_with_options(&self, url: &str, volume: u8, fade_duration: Option<u32>, max_duration: Option<u32>, start_offset: Option<f64>) -> Result<()> {
         // Check if already playing
         {
             let sounds = self.active_sounds.lock().map_err(|_| {
@@ -121,7 +122,7 @@ impl AtmosphereEngine {
 
         // Check if cached first
         if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, true, fade_duration, max_duration, None);
+            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, true, fade_duration, max_duration, None, start_offset);
         }
 
         // Not cached - queue download with callback to start playback
@@ -138,7 +139,7 @@ impl AtmosphereEngine {
 
             match result {
                 Ok(path) => {
-                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, true, fade_duration, max_duration, None) {
+                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, true, fade_duration, max_duration, None, start_offset) {
                         tracing::warn!("Failed to start atmosphere sound after download: {}", e);
                     }
                 }
@@ -223,6 +224,7 @@ impl AtmosphereEngine {
         max_delay: u32,
         volume_variance: u8,
         pitch_variance: f32,
+        start_offset: Option<f64>,
     ) {
         if let Ok(mut retriggers) = self.active_retriggers.lock() {
             retriggers.insert(url.to_string(), RetriggerEntry {
@@ -231,6 +233,7 @@ impl AtmosphereEngine {
                 max_delay,
                 volume_variance,
                 pitch_variance,
+                start_offset,
             });
         }
         tracing::info!(
@@ -298,7 +301,7 @@ impl AtmosphereEngine {
 
         // Must be cached (pool sounds are pre-bundled)
         if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, false, None, None, None);
+            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, false, None, None, None, None);
         }
 
         // Queue download as fallback
@@ -310,7 +313,7 @@ impl AtmosphereEngine {
                 return;
             }
             if let Ok(path) = result {
-                let _ = start_playback_internal(&url_owned, &path, volume, &active_sounds, false, None, None, None);
+                let _ = start_playback_internal(&url_owned, &path, volume, &active_sounds, false, None, None, None, None);
             }
         });
 
@@ -542,6 +545,7 @@ fn start_playback_internal(
     fade_duration: Option<u32>,
     max_duration: Option<u32>,
     pitch_semitones: Option<f64>,
+    start_offset: Option<f64>,
 ) -> Result<()> {
     // Load and configure sound
     let sound_data = match StaticSoundData::from_file(file_path) {
@@ -562,6 +566,11 @@ fn start_playback_internal(
     };
     let sound_data = if let Some(semitones) = pitch_semitones {
         sound_data.playback_rate(Semitones(semitones))
+    } else {
+        sound_data
+    };
+    let sound_data = if let Some(offset) = start_offset {
+        sound_data.start_position(kira::sound::PlaybackPosition::Seconds(offset))
     } else {
         sound_data
     };
@@ -727,7 +736,7 @@ fn pool_monitor_loop(
 
         // Start next track (non-looping)
         if let Some(cached_path) = download_queue.enqueue_or_get_cached(&next_url) {
-            if let Err(e) = start_playback_internal(&next_url, &cached_path, volume, active_sounds, false, None, None, None) {
+            if let Err(e) = start_playback_internal(&next_url, &cached_path, volume, active_sounds, false, None, None, None, None) {
                 tracing::warn!("Pool '{}': failed to start next track: {}", pool_name, e);
                 return;
             }
@@ -787,9 +796,10 @@ fn retrigger_monitor_loop(
                 e.max_delay,
                 e.volume_variance,
                 e.pitch_variance,
+                e.start_offset,
             ))
         };
-        let (base_volume, min_delay, max_delay, volume_variance, pitch_variance) = match entry_info {
+        let (base_volume, min_delay, max_delay, volume_variance, pitch_variance, start_offset) = match entry_info {
             Some(info) => info,
             None => {
                 tracing::info!("Retrigger monitor '{}' exiting: entry removed", url);
@@ -858,7 +868,7 @@ fn retrigger_monitor_loop(
 
         // Retrigger playback
         if let Some(cached_path) = download_queue.enqueue_or_get_cached(url) {
-            if let Err(e) = start_playback_internal(url, &cached_path, varied_volume, active_sounds, false, None, None, pitch) {
+            if let Err(e) = start_playback_internal(url, &cached_path, varied_volume, active_sounds, false, None, None, pitch, start_offset) {
                 tracing::warn!("Retrigger '{}': failed to start playback: {}", url, e);
                 return;
             }
@@ -967,6 +977,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -979,6 +990,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -988,6 +1000,7 @@ mod tests {
             30,
             &active_sounds,
             true,
+            None,
             None,
             None,
             None,

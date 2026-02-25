@@ -1812,7 +1812,7 @@ Content is loaded alongside built-in configs.
                         );
                         if let Err(e) = self
                             .atmosphere_engine
-                            .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
+                            .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration, sound.start_offset)
                         {
                             tracing::warn!("Failed to start atmosphere sound: {}", e);
                         } else {
@@ -1863,6 +1863,7 @@ Content is loaded alongside built-in configs.
                             rt.max_delay,
                             rt.volume_variance,
                             rt.pitch_variance,
+                            sound.start_offset,
                         );
                         if let Err(e) = self.atmosphere_engine.start_retrigger(&sound.url) {
                             tracing::warn!("Failed to start retrigger '{}': {}", sound.url, e);
@@ -1888,7 +1889,7 @@ Content is loaded alongside built-in configs.
                         );
                         if let Err(e) = self
                             .atmosphere_engine
-                            .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration)
+                            .start_single_with_options(&sound.url, sound.volume, fade_duration, max_duration, sound.start_offset)
                         {
                             tracing::warn!("Failed to start atmosphere sound: {}", e);
                         } else {

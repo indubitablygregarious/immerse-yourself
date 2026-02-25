@@ -216,6 +216,10 @@ pub struct SoundMix {
     /// at slightly varied volume and pitch. Mutually exclusive with `pool`.
     #[serde(default)]
     pub retrigger: Option<RetriggerConfig>,
+    /// Start offset in seconds — skips the beginning of the sound file.
+    /// Useful for trimming unwanted intros (e.g., voice announcements).
+    #[serde(default)]
+    pub start_offset: Option<f64>,
 }
 
 /// Configuration for retrigger mode — plays a sound once, waits a random delay,

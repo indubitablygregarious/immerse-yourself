@@ -544,8 +544,9 @@ impl SpotifyEngine {
             .await
             .map_err(|e| Error::SpotifyApi(e.to_string()))?;
 
-        // 404 means no active device, which is fine for pause
-        if !response.status().is_success() && response.status().as_u16() != 404 {
+        // 404 = no active device, 403 = already paused / no active playback
+        let status = response.status().as_u16();
+        if !response.status().is_success() && status != 404 && status != 403 {
             let error = response.text().await.unwrap_or_default();
             return Err(Error::SpotifyApi(format!("Pause failed: {}", error)));
         }

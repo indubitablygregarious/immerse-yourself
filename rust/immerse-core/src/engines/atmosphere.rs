@@ -580,17 +580,25 @@ fn start_playback_internal(
         }
     };
     let sound_data = if looping {
-        sound_data.loop_region(..).volume(volume_to_db(volume))
+        // If start_offset is set, loop from that offset so we never replay the beginning
+        if let Some(offset) = start_offset {
+            sound_data
+                .loop_region(kira::sound::PlaybackPosition::Seconds(offset)..)
+                .start_position(kira::sound::PlaybackPosition::Seconds(offset))
+                .volume(volume_to_db(volume))
+        } else {
+            sound_data.loop_region(..).volume(volume_to_db(volume))
+        }
     } else {
-        sound_data.volume(volume_to_db(volume))
+        let sound_data = sound_data.volume(volume_to_db(volume));
+        if let Some(offset) = start_offset {
+            sound_data.start_position(kira::sound::PlaybackPosition::Seconds(offset))
+        } else {
+            sound_data
+        }
     };
     let sound_data = if let Some(semitones) = pitch_semitones {
         sound_data.playback_rate(Semitones(semitones))
-    } else {
-        sound_data
-    };
-    let sound_data = if let Some(offset) = start_offset {
-        sound_data.start_position(kira::sound::PlaybackPosition::Seconds(offset))
     } else {
         sound_data
     };

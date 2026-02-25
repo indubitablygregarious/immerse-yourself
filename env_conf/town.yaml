@@ -48,10 +48,12 @@ time_variants:
         mix:
         - url: https://freesound.org/people/InspectorJ/sounds/439472/
           max_duration: 10
+          fade_duration: 3
         - url: https://freesound.org/people/Garuda1982/sounds/627335/
           optional: true
           probability: 0.5
           volume: 55
+          fade_duration: 3
         - url: https://freesound.org/people/klankbeeld/sounds/625333/
           volume: 50
         - url: https://freesound.org/people/YleArkisto/sounds/322565/

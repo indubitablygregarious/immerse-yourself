@@ -1762,13 +1762,16 @@ Content is loaded alongside built-in configs.
                     // Start new atmosphere mix — mark names for refresh after downloads finish
                     self.needs_name_refresh = true;
 
-                    // Separate sounds into categories: pooled, required (non-pooled), optional (non-pooled)
+                    // Separate sounds into categories: retrigger, pooled, required, optional
                     let mut required: Vec<&SoundMix> = Vec::new();
                     let mut optional: Vec<&SoundMix> = Vec::new();
                     let mut pools: HashMap<String, Vec<&SoundMix>> = HashMap::new();
+                    let mut retriggers: Vec<&SoundMix> = Vec::new();
 
                     for sound in &atmosphere.mix {
-                        if let Some(ref pool_name) = sound.pool {
+                        if sound.retrigger.is_some() {
+                            retriggers.push(sound);
+                        } else if let Some(ref pool_name) = sound.pool {
                             pools.entry(pool_name.clone()).or_default().push(sound);
                         } else if sound.optional == Some(true) {
                             optional.push(sound);
@@ -1844,6 +1847,32 @@ Content is loaded alongside built-in configs.
                         }
                     }
 
+                    // Start retrigger sounds (each counts as 1 toward max_sounds)
+                    for sound in &retriggers {
+                        if total_started >= max { break; }
+                        let rt = sound.retrigger.as_ref().unwrap();
+                        tracing::info!(
+                            "Starting retrigger atmosphere sound: {} at volume {} (delay {}–{}s, vol±{}%, pitch±{:.1}st)",
+                            sound.url, sound.volume,
+                            rt.min_delay, rt.max_delay, rt.volume_variance, rt.pitch_variance
+                        );
+                        self.atmosphere_engine.register_retrigger(
+                            &sound.url,
+                            sound.volume,
+                            rt.min_delay,
+                            rt.max_delay,
+                            rt.volume_variance,
+                            rt.pitch_variance,
+                        );
+                        if let Err(e) = self.atmosphere_engine.start_retrigger(&sound.url) {
+                            tracing::warn!("Failed to start retrigger '{}': {}", sound.url, e);
+                        } else {
+                            self.active_atmosphere_urls.insert(sound.url.clone());
+                            self.atmosphere_volumes.insert(sound.url.clone(), sound.volume);
+                            total_started += 1;
+                        }
+                    }
+
                     // Then start selected optional sounds (up to max)
                     for sound in &selected_optional {
                         if total_started >= max { break; }
@@ -1870,10 +1899,10 @@ Content is loaded alongside built-in configs.
                     }
 
                     tracing::info!(
-                        "Started {}/{} atmosphere sounds for {} ({} required, {} pools, {} optional)",
+                        "Started {}/{} atmosphere sounds for {} ({} required, {} pools, {} retriggers, {} optional)",
                         total_started, atmosphere.mix.len(), config.name,
-                        required.len(), pools.len(),
-                        total_started.saturating_sub(required.len()).saturating_sub(pools.len())
+                        required.len(), pools.len(), retriggers.len(),
+                        total_started.saturating_sub(required.len()).saturating_sub(pools.len()).saturating_sub(retriggers.len())
                     );
                 }
             }

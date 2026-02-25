@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::PlaybackState;
-use kira::Tween;
+use kira::{Semitones, Tween};
 
 use rand::Rng;
 
@@ -28,6 +28,15 @@ struct PoolConfig {
     volumes: HashMap<String, u8>,
 }
 
+/// Configuration for a retrigger sound — plays once, waits, plays again with variation.
+struct RetriggerEntry {
+    base_volume: u8,
+    min_delay: u32,
+    max_delay: u32,
+    volume_variance: u8,
+    pitch_variance: f32,
+}
+
 /// Atmosphere engine for playing looping ambient sounds.
 pub struct AtmosphereEngine {
     cache_dir: PathBuf,
@@ -37,6 +46,8 @@ pub struct AtmosphereEngine {
     generation: Arc<AtomicU64>,
     /// Active sound pools — keyed by pool name. Monitor threads exit when their pool is removed.
     active_pools: Arc<Mutex<HashMap<String, PoolConfig>>>,
+    /// Active retrigger sounds — keyed by URL. Monitor threads exit when their entry is removed.
+    active_retriggers: Arc<Mutex<HashMap<String, RetriggerEntry>>>,
 }
 
 /// A playing atmosphere sound backed by a kira StaticSoundHandle.
@@ -70,6 +81,7 @@ impl AtmosphereEngine {
             download_queue,
             generation: Arc::new(AtomicU64::new(0)),
             active_pools: Arc::new(Mutex::new(HashMap::new())),
+            active_retriggers: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -109,7 +121,7 @@ impl AtmosphereEngine {
 
         // Check if cached first
         if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, true, fade_duration, max_duration);
+            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, true, fade_duration, max_duration, None);
         }
 
         // Not cached - queue download with callback to start playback
@@ -126,7 +138,7 @@ impl AtmosphereEngine {
 
             match result {
                 Ok(path) => {
-                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, true, fade_duration, max_duration) {
+                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, true, fade_duration, max_duration, None) {
                         tracing::warn!("Failed to start atmosphere sound after download: {}", e);
                     }
                 }
@@ -202,6 +214,72 @@ impl AtmosphereEngine {
         Ok(())
     }
 
+    /// Registers a retrigger sound that plays once, waits, then replays with variation.
+    pub fn register_retrigger(
+        &self,
+        url: &str,
+        volume: u8,
+        min_delay: u32,
+        max_delay: u32,
+        volume_variance: u8,
+        pitch_variance: f32,
+    ) {
+        if let Ok(mut retriggers) = self.active_retriggers.lock() {
+            retriggers.insert(url.to_string(), RetriggerEntry {
+                base_volume: volume,
+                min_delay,
+                max_delay,
+                volume_variance,
+                pitch_variance,
+            });
+        }
+        tracing::info!(
+            "Registered retrigger '{}' (delay {}–{}s, vol±{}%, pitch±{:.1}st)",
+            url, min_delay, max_delay, volume_variance, pitch_variance
+        );
+    }
+
+    /// Starts a retrigger sound: plays the first occurrence and spawns a monitor thread
+    /// that detects completion, waits a random delay, then retriggers with variation.
+    pub fn start_retrigger(&self, url: &str) -> Result<()> {
+        let volume = {
+            let retriggers = self.active_retriggers.lock().map_err(|_| {
+                Error::AtmospherePlayback("Failed to acquire retrigger lock".to_string())
+            })?;
+            let entry = retriggers.get(url).ok_or_else(|| {
+                Error::AtmospherePlayback(format!("Retrigger '{}' not registered", url))
+            })?;
+            entry.base_volume
+        };
+
+        // Start the first occurrence (non-looping, no pitch variance on first play)
+        self.start_single_no_loop(url, volume)?;
+
+        // Spawn monitor thread
+        let url_owned = url.to_string();
+        let active_sounds = Arc::clone(&self.active_sounds);
+        let active_retriggers = Arc::clone(&self.active_retriggers);
+        let generation = Arc::clone(&self.generation);
+        let download_queue = Arc::clone(&self.download_queue);
+        let start_generation = self.generation.load(Ordering::SeqCst);
+
+        std::thread::Builder::new()
+            .name(format!("retrigger-monitor-{}", url))
+            .spawn(move || {
+                retrigger_monitor_loop(
+                    &url_owned,
+                    start_generation,
+                    &active_sounds,
+                    &active_retriggers,
+                    &generation,
+                    &download_queue,
+                );
+            })
+            .map_err(|e| Error::AtmospherePlayback(format!("Failed to spawn retrigger monitor: {}", e)))?;
+
+        Ok(())
+    }
+
     /// Starts a single sound without looping (plays once then stops).
     /// Used for pool sounds — the pool monitor detects when it finishes and starts the next one.
     fn start_single_no_loop(&self, url: &str, volume: u8) -> Result<()> {
@@ -220,7 +298,7 @@ impl AtmosphereEngine {
 
         // Must be cached (pool sounds are pre-bundled)
         if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, false, None, None);
+            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, false, None, None, None);
         }
 
         // Queue download as fallback
@@ -232,7 +310,7 @@ impl AtmosphereEngine {
                 return;
             }
             if let Ok(path) = result {
-                let _ = start_playback_internal(&url_owned, &path, volume, &active_sounds, false, None, None);
+                let _ = start_playback_internal(&url_owned, &path, volume, &active_sounds, false, None, None, None);
             }
         });
 
@@ -259,9 +337,12 @@ impl AtmosphereEngine {
         let old_gen = self.generation.fetch_add(1, Ordering::SeqCst);
         tracing::info!("stop_all: incremented generation from {} to {}", old_gen, old_gen + 1);
 
-        // Clear pools first so monitor threads see the pool gone and exit
+        // Clear pools and retriggers first so monitor threads see them gone and exit
         if let Ok(mut pools) = self.active_pools.lock() {
             pools.clear();
+        }
+        if let Ok(mut retriggers) = self.active_retriggers.lock() {
+            retriggers.clear();
         }
 
         let mut count = 0;
@@ -292,6 +373,18 @@ impl AtmosphereEngine {
             for name in pools_to_remove {
                 pools.remove(&name);
                 tracing::info!("Removed pool '{}' (not in keep set)", name);
+            }
+        }
+
+        // Remove retriggers whose URLs aren't in the keep set
+        if let Ok(mut retriggers) = self.active_retriggers.lock() {
+            let to_remove: Vec<String> = retriggers.keys()
+                .filter(|u| !keep_urls.contains(*u))
+                .cloned()
+                .collect();
+            for url in to_remove {
+                retriggers.remove(&url);
+                tracing::info!("Removed retrigger '{}' (not in keep set)", url);
             }
         }
 
@@ -448,6 +541,7 @@ fn start_playback_internal(
     looping: bool,
     fade_duration: Option<u32>,
     max_duration: Option<u32>,
+    pitch_semitones: Option<f64>,
 ) -> Result<()> {
     // Load and configure sound
     let sound_data = match StaticSoundData::from_file(file_path) {
@@ -465,6 +559,11 @@ fn start_playback_internal(
         sound_data.loop_region(..).volume(volume_to_db(volume))
     } else {
         sound_data.volume(volume_to_db(volume))
+    };
+    let sound_data = if let Some(semitones) = pitch_semitones {
+        sound_data.playback_rate(Semitones(semitones))
+    } else {
+        sound_data
     };
 
     // Play via shared AudioManager
@@ -628,7 +727,7 @@ fn pool_monitor_loop(
 
         // Start next track (non-looping)
         if let Some(cached_path) = download_queue.enqueue_or_get_cached(&next_url) {
-            if let Err(e) = start_playback_internal(&next_url, &cached_path, volume, active_sounds, false, None, None) {
+            if let Err(e) = start_playback_internal(&next_url, &cached_path, volume, active_sounds, false, None, None, None) {
                 tracing::warn!("Pool '{}': failed to start next track: {}", pool_name, e);
                 return;
             }
@@ -640,6 +739,141 @@ fn pool_monitor_loop(
 
         tracing::info!("Pool '{}': started next track: {} at volume {}%", pool_name, next_url, volume);
         current_url = next_url;
+    }
+}
+
+/// Randomize volume within ±variance% of base, clamped to 1–100.
+fn vary_volume(base: u8, variance: u8) -> u8 {
+    if variance == 0 {
+        return base;
+    }
+    let mut rng = rand::thread_rng();
+    let delta = (base as f32) * (variance as f32) / 100.0;
+    let varied = base as f32 + rng.gen_range(-delta..=delta);
+    (varied.round() as u8).clamp(1, 100)
+}
+
+/// Retrigger monitor loop — runs on a background thread, polls for sound completion,
+/// waits a random delay, then retriggers the sound with volume and pitch variation.
+fn retrigger_monitor_loop(
+    url: &str,
+    start_generation: u64,
+    active_sounds: &Arc<Mutex<HashMap<String, ActiveSound>>>,
+    active_retriggers: &Arc<Mutex<HashMap<String, RetriggerEntry>>>,
+    generation: &Arc<AtomicU64>,
+    download_queue: &Arc<DownloadQueue>,
+) {
+    tracing::info!("Retrigger monitor started for '{}'", url);
+
+    loop {
+        // Poll every 500ms — short sounds need quick completion detection
+        std::thread::sleep(Duration::from_millis(500));
+
+        // Check generation — if changed, environment was switched
+        if generation.load(Ordering::SeqCst) != start_generation {
+            tracing::info!("Retrigger monitor '{}' exiting: generation changed", url);
+            return;
+        }
+
+        // Check if retrigger entry still exists
+        let entry_info = {
+            let retriggers = match active_retriggers.lock() {
+                Ok(r) => r,
+                Err(_) => return,
+            };
+            retriggers.get(url).map(|e| (
+                e.base_volume,
+                e.min_delay,
+                e.max_delay,
+                e.volume_variance,
+                e.pitch_variance,
+            ))
+        };
+        let (base_volume, min_delay, max_delay, volume_variance, pitch_variance) = match entry_info {
+            Some(info) => info,
+            None => {
+                tracing::info!("Retrigger monitor '{}' exiting: entry removed", url);
+                return;
+            }
+        };
+
+        // Check if current playback is still going
+        let is_stopped = {
+            let sounds = match active_sounds.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            match sounds.get(url) {
+                Some(active) => matches!(active.handle.state(), PlaybackState::Stopped),
+                None => true, // Already removed
+            }
+        };
+
+        if !is_stopped {
+            continue;
+        }
+
+        // Sound finished — remove from active_sounds
+        if let Ok(mut sounds) = active_sounds.lock() {
+            sounds.remove(url);
+        }
+        tracing::debug!("Retrigger '{}': playback finished, waiting before retrigger", url);
+
+        // Wait random delay in 1-second increments (checking generation each second)
+        let mut rng = rand::thread_rng();
+        let delay_secs = rng.gen_range(min_delay..=max_delay);
+        for _ in 0..delay_secs {
+            std::thread::sleep(Duration::from_secs(1));
+
+            // Check generation during wait
+            if generation.load(Ordering::SeqCst) != start_generation {
+                tracing::info!("Retrigger monitor '{}' exiting during delay: generation changed", url);
+                return;
+            }
+
+            // Check if entry still exists during wait
+            if let Ok(retriggers) = active_retriggers.lock() {
+                if !retriggers.contains_key(url) {
+                    tracing::info!("Retrigger monitor '{}' exiting during delay: entry removed", url);
+                    return;
+                }
+            }
+        }
+
+        // Force-stop any lingering handle before retriggering (cut overlap)
+        if let Ok(mut sounds) = active_sounds.lock() {
+            if let Some(mut active) = sounds.remove(url) {
+                active.handle.stop(Tween::default());
+            }
+        }
+
+        // Calculate varied volume and pitch
+        let varied_volume = vary_volume(base_volume, volume_variance);
+        let pitch = if pitch_variance > 0.0 {
+            let mut rng = rand::thread_rng();
+            Some(rng.gen_range(-(pitch_variance as f64)..=(pitch_variance as f64)))
+        } else {
+            None
+        };
+
+        // Retrigger playback
+        if let Some(cached_path) = download_queue.enqueue_or_get_cached(url) {
+            if let Err(e) = start_playback_internal(url, &cached_path, varied_volume, active_sounds, false, None, None, pitch) {
+                tracing::warn!("Retrigger '{}': failed to start playback: {}", url, e);
+                return;
+            }
+        } else {
+            tracing::warn!("Retrigger '{}': sound not cached, skipping", url);
+            continue;
+        }
+
+        tracing::info!(
+            "Retrigger '{}': retriggered at volume {}%{} (waited {}s)",
+            url,
+            varied_volume,
+            pitch.map_or(String::new(), |p| format!(", pitch {:+.1}st", p)),
+            delay_secs,
+        );
     }
 }
 
@@ -732,6 +966,7 @@ mod tests {
             true,
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -743,6 +978,7 @@ mod tests {
             true,
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -752,6 +988,7 @@ mod tests {
             30,
             &active_sounds,
             true,
+            None,
             None,
             None,
         )

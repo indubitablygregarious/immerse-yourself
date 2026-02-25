@@ -211,6 +211,31 @@ pub struct SoundMix {
     /// play one at a time — when one finishes, another from the pool starts randomly.
     #[serde(default)]
     pub pool: Option<String>,
+    /// Retrigger configuration for sporadic one-shot playback.
+    /// When set, the sound plays once, waits a random delay, then plays again
+    /// at slightly varied volume and pitch. Mutually exclusive with `pool`.
+    #[serde(default)]
+    pub retrigger: Option<RetriggerConfig>,
+}
+
+/// Configuration for retrigger mode — plays a sound once, waits a random delay,
+/// then plays again at slightly varied volume and pitch.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RetriggerConfig {
+    /// Minimum seconds to wait before the next trigger.
+    pub min_delay: u32,
+    /// Maximum seconds to wait before the next trigger.
+    pub max_delay: u32,
+    /// Volume variance as ±percentage of base volume (default: 15).
+    #[serde(default = "default_volume_variance")]
+    pub volume_variance: u8,
+    /// Pitch variance in ±semitones (default: 0.0 = no pitch change).
+    #[serde(default)]
+    pub pitch_variance: f32,
+}
+
+fn default_volume_variance() -> u8 {
+    15
 }
 
 fn default_volume() -> u8 {

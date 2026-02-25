@@ -22,6 +22,13 @@ export interface SpotifyConfig {
   };
 }
 
+export interface RetriggerConfig {
+  min_delay: number;
+  max_delay: number;
+  volume_variance?: number;
+  pitch_variance?: number;
+}
+
 export interface SoundMix {
   url: string;
   volume: number;
@@ -30,6 +37,8 @@ export interface SoundMix {
   probability?: number;
   max_duration?: number;
   fade_duration?: number;
+  pool?: string;
+  retrigger?: RetriggerConfig;
 }
 
 export interface AtmosphereConfig {

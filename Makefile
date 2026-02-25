@@ -80,8 +80,8 @@ setup:
 	@echo "Setup complete (Tauri CLI installed, git hooks configured)"
 
 TAURI_CARGO_WRAPPER = /tmp/cargo-wrapper
-CARGO_189 = /usr/lib/rust-1.89/bin/cargo
-RUSTC_189 = /usr/lib/rust-1.89/bin/rustc
+CARGO_189 := $(shell rustup which cargo --toolchain 1.89.0 2>/dev/null)
+RUSTC_189 := $(shell rustup which rustc --toolchain 1.89.0 2>/dev/null)
 CARGO_TAURI = $(HOME)/.cargo/bin/cargo-tauri
 
 dev:

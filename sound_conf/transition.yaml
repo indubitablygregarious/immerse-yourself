@@ -11,6 +11,8 @@ sounds:
   # Whoosh/Swoosh variations
   - url: "https://freesound.org/people/servicedesign/sounds/219095/"
     description: "Vocal whoosh for animations"
+    max_duration: 4000
+    fadeout: 1000
 
   - url: "https://freesound.org/people/anagar/sounds/267951/"
     description: "Simple swoosh transition"

@@ -51,9 +51,9 @@ impl SoundEngine {
 
     /// Plays a sound file synchronously (blocks until complete).
     pub fn play(&self, file: &str) -> Result<()> {
-        let path = self.resolve_path(file)?;
-        let sound_data = StaticSoundData::from_file(&path)
-            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", path.display(), e)))?;
+        let resolved = self.resolve_sound(file)?;
+        let sound_data = StaticSoundData::from_file(&resolved.path)
+            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", resolved.path.display(), e)))?;
 
         let mut handle = with_audio_manager(|mgr| mgr.play(sound_data))
             .ok_or(Error::NoAudioPlayer)?
@@ -78,18 +78,40 @@ impl SoundEngine {
     }
 
     /// Plays a sound file asynchronously with a specific volume (0-100).
+    /// If the sound comes from a sound_conf with max_duration/fadeout, those are applied.
     pub fn play_async_with_volume(&self, file: &str, volume: u8) -> Result<()> {
-        let path = self.resolve_path(file)?;
-        let sound_data = StaticSoundData::from_file(&path)
-            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", path.display(), e)))?
+        let resolved = self.resolve_sound(file)?;
+        let sound_data = StaticSoundData::from_file(&resolved.path)
+            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", resolved.path.display(), e)))?
             .volume(volume_to_db(volume));
 
-        let handle = with_audio_manager(|mgr| mgr.play(sound_data))
+        let mut handle = with_audio_manager(|mgr| mgr.play(sound_data))
             .ok_or(Error::NoAudioPlayer)?
             .map_err(|e| Error::SoundPlayback(format!("{}", e)))?;
 
-        if let Ok(mut handles) = self.active_handles.lock() {
-            handles.push(handle);
+        // Apply fadeout if configured (from sound_conf YAML)
+        if let Some(fadeout_ms) = resolved.fadeout {
+            let wait_ms = if let Some(max_dur) = resolved.max_duration {
+                // Wait until (max_duration - fadeout) before starting fade
+                max_dur.saturating_sub(fadeout_ms) as u64
+            } else {
+                // No max_duration: start fading immediately
+                0
+            };
+
+            std::thread::spawn(move || {
+                if wait_ms > 0 {
+                    std::thread::sleep(std::time::Duration::from_millis(wait_ms));
+                }
+                handle.stop(Tween {
+                    duration: std::time::Duration::from_millis(fadeout_ms as u64),
+                    ..Default::default()
+                });
+            });
+        } else {
+            if let Ok(mut handles) = self.active_handles.lock() {
+                handles.push(handle);
+            }
         }
 
         Ok(())
@@ -100,9 +122,9 @@ impl SoundEngine {
     where
         F: FnOnce() + Send + 'static,
     {
-        let path = self.resolve_path(file)?;
-        let sound_data = StaticSoundData::from_file(&path)
-            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", path.display(), e)))?;
+        let resolved = self.resolve_sound(file)?;
+        let sound_data = StaticSoundData::from_file(&resolved.path)
+            .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", resolved.path.display(), e)))?;
 
         let handle = with_audio_manager(|mgr| mgr.play(sound_data))
             .ok_or(Error::NoAudioPlayer)?
@@ -165,15 +187,24 @@ impl SoundEngine {
         }
     }
 
-    /// Resolves a file path, handling both absolute and relative paths.
-    /// Search order: sound_conf → absolute → project_root → project_root/sounds →
-    /// user_content_dir → user_content_dir/sounds → error
-    fn resolve_path(&self, file: &str) -> Result<PathBuf> {
-        // Handle sound_conf references
+    /// Resolves a file reference to a ResolvedSound with path and optional playback metadata.
+    /// For sound_conf references, metadata comes from the YAML config.
+    /// For plain file paths, metadata is None.
+    fn resolve_sound(&self, file: &str) -> Result<ResolvedSound> {
         if file.starts_with("sound_conf:") {
             return self.resolve_sound_conf(file);
         }
+        Ok(ResolvedSound {
+            path: self.resolve_path(file)?,
+            max_duration: None,
+            fadeout: None,
+        })
+    }
 
+    /// Resolves a file path, handling both absolute and relative paths.
+    /// Search order: absolute → project_root → project_root/sounds →
+    /// user_content_dir → user_content_dir/sounds → error
+    fn resolve_path(&self, file: &str) -> Result<PathBuf> {
         let path = if Path::new(file).is_absolute() {
             PathBuf::from(file)
         } else {
@@ -215,7 +246,7 @@ impl SoundEngine {
 
     /// Resolves a sound_conf reference to a random sound from the collection.
     /// Searches project_root/sound_conf/ first, then user_content_dir/sound_conf/.
-    fn resolve_sound_conf(&self, reference: &str) -> Result<PathBuf> {
+    fn resolve_sound_conf(&self, reference: &str) -> Result<ResolvedSound> {
         let conf_name = reference.strip_prefix("sound_conf:").unwrap();
         let conf_path = self
             .project_root
@@ -256,18 +287,28 @@ impl SoundEngine {
         use rand::seq::SliceRandom;
         let sound = conf.sounds.choose(&mut rand::thread_rng()).unwrap();
 
+        // Per-sound values override collection-level values
+        let max_duration = sound.max_duration.or(conf.max_duration);
+        let fadeout = sound.fadeout.or(conf.fadeout);
+
         // Handle local file vs URL
-        if let Some(ref file) = sound.file {
-            self.resolve_path(file)
+        let path = if let Some(ref file) = sound.file {
+            self.resolve_path(file)?
         } else if let Some(ref url) = sound.url {
             // Download the URL to cache if needed
-            self.download_sound_url(url)
+            self.download_sound_url(url)?
         } else {
-            Err(Error::SoundConfNotFound(format!(
+            return Err(Error::SoundConfNotFound(format!(
                 "Sound in {} has neither file nor url",
                 conf_name
-            )))
-        }
+            )));
+        };
+
+        Ok(ResolvedSound {
+            path,
+            max_duration,
+            fadeout,
+        })
     }
 
     /// Downloads a sound from a URL to the cache directory.
@@ -332,6 +373,10 @@ struct SoundConfConfig {
     name: String,
     #[serde(default)]
     description: String,
+    /// Collection-level max duration in ms (can be overridden per-sound).
+    max_duration: Option<u32>,
+    /// Collection-level fadeout duration in ms (can be overridden per-sound).
+    fadeout: Option<u32>,
     sounds: Vec<SoundEntry>,
 }
 
@@ -340,6 +385,19 @@ struct SoundConfConfig {
 struct SoundEntry {
     file: Option<String>,
     url: Option<String>,
+    /// Per-sound max duration in ms (overrides collection-level).
+    max_duration: Option<u32>,
+    /// Per-sound fadeout duration in ms (overrides collection-level).
+    fadeout: Option<u32>,
+}
+
+/// A resolved sound with its file path and optional playback metadata.
+struct ResolvedSound {
+    path: PathBuf,
+    /// Max total playback duration in ms (including fade).
+    max_duration: Option<u32>,
+    /// Fadeout duration in ms.
+    fadeout: Option<u32>,
 }
 
 impl Drop for SoundEngine {

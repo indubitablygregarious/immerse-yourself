@@ -2,6 +2,8 @@
 # One sound is randomly selected and played when this config is referenced
 name: "Squeaky Door"
 description: "Various door creaking and squeaking sounds"
+max_duration: 4000
+fadeout: 1000
 
 sounds:
   # Original door sound from sounds/ directory
@@ -14,7 +16,6 @@ sounds:
 
   - url: "https://freesound.org/people/kyles/sounds/451813/"
     description: "Door squeak by kyles"
-    fadeout: 4000
 
   - url: "https://freesound.org/people/BlondPanda/sounds/778461/"
     description: "Door creak by BlondPanda"
@@ -24,7 +25,6 @@ sounds:
 
   - url: "https://freesound.org/people/kyles/sounds/51805/"
     description: "Door creak by kyles (alt)"
-    fadeout: 4000
 
   - url: "https://freesound.org/people/skyumori/sounds/104526/"
     description: "Door squeak by skyumori"

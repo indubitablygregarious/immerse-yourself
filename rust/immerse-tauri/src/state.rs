@@ -1998,6 +1998,8 @@ Content is loaded alongside built-in configs.
             if let Err(e) = self.atmosphere_engine.stop_single(url) {
                 tracing::warn!("Failed to stop loop sound: {}", e);
             }
+            // Also kill any retrigger monitor thread for this URL
+            self.atmosphere_engine.stop_retrigger(url);
             self.active_atmosphere_urls.remove(url);
             self.atmosphere_volumes.remove(url);
             self.active_loop_urls.remove(url);

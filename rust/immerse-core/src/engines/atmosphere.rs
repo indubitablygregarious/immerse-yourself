@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -49,6 +49,8 @@ pub struct AtmosphereEngine {
     active_pools: Arc<Mutex<HashMap<String, PoolConfig>>>,
     /// Active retrigger sounds — keyed by URL. Monitor threads exit when their entry is removed.
     active_retriggers: Arc<Mutex<HashMap<String, RetriggerEntry>>>,
+    /// When true, retrigger monitor threads pause instead of triggering.
+    paused: Arc<AtomicBool>,
 }
 
 /// A playing atmosphere sound backed by a kira StaticSoundHandle.
@@ -83,6 +85,7 @@ impl AtmosphereEngine {
             generation: Arc::new(AtomicU64::new(0)),
             active_pools: Arc::new(Mutex::new(HashMap::new())),
             active_retriggers: Arc::new(Mutex::new(HashMap::new())),
+            paused: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -260,6 +263,7 @@ impl AtmosphereEngine {
         let active_retriggers = Arc::clone(&self.active_retriggers);
         let generation = Arc::clone(&self.generation);
         let download_queue = Arc::clone(&self.download_queue);
+        let paused = Arc::clone(&self.paused);
         let start_generation = self.generation.load(Ordering::SeqCst);
 
         std::thread::Builder::new()
@@ -272,6 +276,7 @@ impl AtmosphereEngine {
                     &active_retriggers,
                     &generation,
                     &download_queue,
+                    &paused,
                 );
             })
             .map_err(|e| Error::AtmospherePlayback(format!("Failed to spawn retrigger monitor: {}", e)))?;
@@ -328,6 +333,23 @@ impl AtmosphereEngine {
         }
 
         Ok(())
+    }
+
+    /// Removes a single retrigger entry so its monitor thread exits.
+    /// Also stops the sound handle if currently playing.
+    pub fn stop_retrigger(&self, url: &str) {
+        if let Ok(mut retriggers) = self.active_retriggers.lock() {
+            if retriggers.remove(url).is_some() {
+                tracing::info!("Removed retrigger entry for '{}'", url);
+            }
+        }
+        // Also stop the sound handle if it's mid-playback
+        if let Ok(mut sounds) = self.active_sounds.lock() {
+            if let Some(mut active) = sounds.remove(url) {
+                active.handle.stop(Tween::default());
+                tracing::info!("Stopped retrigger sound handle: {}", url);
+            }
+        }
     }
 
     /// Stops all playing sounds and invalidates pending download callbacks.
@@ -480,6 +502,7 @@ impl AtmosphereEngine {
 
     /// Pauses all currently playing sounds.
     pub fn pause_all(&self) {
+        self.paused.store(true, Ordering::SeqCst);
         if let Ok(mut sounds) = self.active_sounds.lock() {
             for (url, active) in sounds.iter_mut() {
                 active.handle.pause(Tween::default());
@@ -490,6 +513,7 @@ impl AtmosphereEngine {
 
     /// Resumes all currently paused sounds.
     pub fn resume_all(&self) {
+        self.paused.store(false, Ordering::SeqCst);
         if let Ok(mut sounds) = self.active_sounds.lock() {
             for (url, active) in sounds.iter_mut() {
                 active.handle.resume(Tween::default());
@@ -768,6 +792,7 @@ fn retrigger_monitor_loop(
     active_retriggers: &Arc<Mutex<HashMap<String, RetriggerEntry>>>,
     generation: &Arc<AtomicU64>,
     download_queue: &Arc<DownloadQueue>,
+    paused: &Arc<AtomicBool>,
 ) {
     tracing::info!("Retrigger monitor started for '{}'", url);
 
@@ -799,7 +824,8 @@ fn retrigger_monitor_loop(
         let mut rng = rand::thread_rng();
         let delay_secs = rng.gen_range(min_delay..=max_delay);
         tracing::debug!("Retrigger '{}': waiting {}s before trigger", url, delay_secs);
-        for _ in 0..delay_secs {
+        let mut remaining = delay_secs;
+        while remaining > 0 {
             std::thread::sleep(Duration::from_secs(1));
 
             if generation.load(Ordering::SeqCst) != start_generation {
@@ -810,6 +836,24 @@ fn retrigger_monitor_loop(
             if let Ok(retriggers) = active_retriggers.lock() {
                 if !retriggers.contains_key(url) {
                     tracing::info!("Retrigger monitor '{}' exiting during delay: entry removed", url);
+                    return;
+                }
+            }
+
+            // Don't count down while paused — just keep sleeping
+            if !paused.load(Ordering::SeqCst) {
+                remaining -= 1;
+            }
+        }
+
+        // Don't trigger if paused — wait until resumed
+        while paused.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(250));
+            if generation.load(Ordering::SeqCst) != start_generation {
+                return;
+            }
+            if let Ok(retriggers) = active_retriggers.lock() {
+                if !retriggers.contains_key(url) {
                     return;
                 }
             }

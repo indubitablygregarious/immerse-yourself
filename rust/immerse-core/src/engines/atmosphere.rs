@@ -860,6 +860,18 @@ fn retrigger_monitor_loop(
         }
 
         // --- Phase 3: Play with variation ---
+        // Check cancellation before starting new playback
+        if generation.load(Ordering::SeqCst) != start_generation {
+            tracing::info!("Retrigger monitor '{}' exiting before playback: generation changed", url);
+            return;
+        }
+        if let Ok(retriggers) = active_retriggers.lock() {
+            if !retriggers.contains_key(url) {
+                tracing::info!("Retrigger monitor '{}' exiting before playback: entry removed", url);
+                return;
+            }
+        }
+
         // Force-stop any lingering handle before triggering
         if let Ok(mut sounds) = active_sounds.lock() {
             if let Some(mut active) = sounds.remove(url) {
@@ -899,12 +911,24 @@ fn retrigger_monitor_loop(
 
             if generation.load(Ordering::SeqCst) != start_generation {
                 tracing::info!("Retrigger monitor '{}' exiting: generation changed", url);
+                // Stop the handle we spawned in Phase 3
+                if let Ok(mut sounds) = active_sounds.lock() {
+                    if let Some(mut active) = sounds.remove(url) {
+                        active.handle.stop(Tween::default());
+                    }
+                }
                 return;
             }
 
             if let Ok(retriggers) = active_retriggers.lock() {
                 if !retriggers.contains_key(url) {
                     tracing::info!("Retrigger monitor '{}' exiting: entry removed", url);
+                    // Stop the handle we spawned in Phase 3
+                    if let Ok(mut sounds) = active_sounds.lock() {
+                        if let Some(mut active) = sounds.remove(url) {
+                            active.handle.stop(Tween::default());
+                        }
+                    }
                     return;
                 }
             }

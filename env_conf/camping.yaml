@@ -227,7 +227,7 @@ time_variants:
           volume: 80
         - url: https://freesound.org/people/RyanKingArt/sounds/746365/
           volume: 65
-        - url: https://freesound.org/people/klankbeeld/sounds/702233/
+        - url: https://freesound.org/people/chris5s/sounds/595880/
           volume: 45
           optional: true
           probability: 0.6

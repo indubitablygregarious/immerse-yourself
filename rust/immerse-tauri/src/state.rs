@@ -2720,7 +2720,7 @@ Content is loaded alongside built-in configs.
 
 /// Discovers WIZ bulbs on the network.
 /// Uses UDP broadcast to find bulbs on the local network.
-pub async fn discover_bulbs() -> Result<Vec<String>, String> {
+pub(crate) async fn discover_bulbs() -> Result<Vec<String>, String> {
     use std::net::UdpSocket;
     use std::time::Duration;
 

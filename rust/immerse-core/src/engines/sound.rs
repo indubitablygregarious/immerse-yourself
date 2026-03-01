@@ -368,6 +368,7 @@ impl SoundEngine {
 
 /// Sound configuration file format.
 #[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)] // Fields present in YAML schema, deserialized but not accessed
 struct SoundConfConfig {
     #[serde(default)]
     name: String,

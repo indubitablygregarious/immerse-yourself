@@ -1,5 +1,7 @@
 # Immerse Yourself
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
+
 An open-source interactive ambient environment system that transforms your space with synchronized music, smart lighting, and sound effects. Built for tabletop gaming (D&D, Pathfinder), ambient workspaces, or just setting the mood.
 
 ![Immerse Yourself screenshot](https://raw.githubusercontent.com/indubitablygregarious/immerse-yourself/main/immerse-yourself-screenshot.png)

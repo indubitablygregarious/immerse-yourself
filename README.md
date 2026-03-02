@@ -1,6 +1,11 @@
 # Immerse Yourself
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=bugs)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=indubitablygregarious_immerse-yourself&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=indubitablygregarious_immerse-yourself)
 
 An open-source interactive ambient environment system that transforms your space with synchronized music, smart lighting, and sound effects. Built for tabletop gaming (D&D, Pathfinder), ambient workspaces, or just setting the mood.
 

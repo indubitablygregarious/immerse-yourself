@@ -151,11 +151,18 @@ impl SoundEngine {
             .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", resolved.path.display(), e)))?
             .volume(volume_to_db(volume));
 
+        // Apply start_offset if configured (audio sprite sheet support)
+        let sound_data = if let Some(offset_ms) = resolved.start_offset {
+            sound_data.start_position(kira::sound::PlaybackPosition::Seconds(offset_ms as f64 / 1000.0))
+        } else {
+            sound_data
+        };
+
         let mut handle = with_audio_manager(|mgr| mgr.play(sound_data))
             .ok_or(Error::NoAudioPlayer)?
             .map_err(|e| Error::SoundPlayback(format!("{}", e)))?;
 
-        // Apply fadeout if configured (from sound_conf YAML)
+        // Apply duration/fadeout controls (from sound_conf YAML)
         if let Some(fadeout_ms) = resolved.fadeout {
             let wait_ms = if let Some(max_dur) = resolved.max_duration {
                 // Wait until (max_duration - fadeout) before starting fade
@@ -173,6 +180,12 @@ impl SoundEngine {
                     duration: std::time::Duration::from_millis(fadeout_ms as u64),
                     ..Default::default()
                 });
+            });
+        } else if let Some(max_dur) = resolved.max_duration {
+            // max_duration without fadeout: hard stop after duration
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(max_dur as u64));
+                handle.stop(Tween::default());
             });
         } else {
             if let Ok(mut handles) = self.active_handles.lock() {
@@ -264,6 +277,7 @@ impl SoundEngine {
             path: self.resolve_path(file)?,
             max_duration: None,
             fadeout: None,
+            start_offset: None,
         })
     }
 
@@ -356,6 +370,7 @@ impl SoundEngine {
         // Per-sound values override collection-level values
         let max_duration = sound.max_duration.or(conf.max_duration);
         let fadeout = sound.fadeout.or(conf.fadeout);
+        let start_offset = sound.start_offset.or(conf.start_offset);
 
         // Handle local file vs URL
         let path = if let Some(ref file) = sound.file {
@@ -377,6 +392,7 @@ impl SoundEngine {
             path,
             max_duration,
             fadeout,
+            start_offset,
         })
     }
 
@@ -418,6 +434,8 @@ struct SoundConfConfig {
     max_duration: Option<u32>,
     /// Collection-level fadeout duration in ms (can be overridden per-sound).
     fadeout: Option<u32>,
+    /// Collection-level start offset in ms (can be overridden per-sound).
+    start_offset: Option<u32>,
     sounds: Vec<SoundEntry>,
 }
 
@@ -430,6 +448,8 @@ struct SoundEntry {
     max_duration: Option<u32>,
     /// Per-sound fadeout duration in ms (overrides collection-level).
     fadeout: Option<u32>,
+    /// Per-sound start offset in ms (overrides collection-level).
+    start_offset: Option<u32>,
 }
 
 /// A resolved sound with its file path and optional playback metadata.
@@ -439,6 +459,8 @@ struct ResolvedSound {
     max_duration: Option<u32>,
     /// Fadeout duration in ms.
     fadeout: Option<u32>,
+    /// Start position in ms (for audio sprite sheets).
+    start_offset: Option<u32>,
 }
 
 impl Drop for SoundEngine {

@@ -8,11 +8,71 @@ sounds:
   - url: "https://freesound.org/people/DJT4NN3R/sounds/449994/"
     description: "Original chill whoosh transition"
 
-  # Whoosh/Swoosh variations
+  # Human vocal whooshes — 13 segments from a single sprite sheet file
   - url: "https://freesound.org/people/servicedesign/sounds/219095/"
-    description: "Vocal whoosh for animations"
-    max_duration: 4000
-    fadeout: 1000
+    description: "Vocal whoosh 1"
+    start_offset: 0
+    max_duration: 233
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 2"
+    start_offset: 626
+    max_duration: 147
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 3"
+    start_offset: 1326
+    max_duration: 152
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 4"
+    start_offset: 2076
+    max_duration: 152
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 5"
+    start_offset: 2486
+    max_duration: 165
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 6"
+    start_offset: 3285
+    max_duration: 147
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 7"
+    start_offset: 3863
+    max_duration: 178
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 8"
+    start_offset: 4526
+    max_duration: 90
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 9"
+    start_offset: 5172
+    max_duration: 117
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 10"
+    start_offset: 5793
+    max_duration: 110
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 11"
+    start_offset: 6568
+    max_duration: 124
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 12"
+    start_offset: 7312
+    max_duration: 142
+
+  - url: "https://freesound.org/people/servicedesign/sounds/219095/"
+    description: "Vocal whoosh 13"
+    start_offset: 8069
+    max_duration: 151
 
   - url: "https://freesound.org/people/anagar/sounds/267951/"
     description: "Simple swoosh transition"

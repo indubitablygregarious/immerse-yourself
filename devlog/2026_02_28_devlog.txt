@@ -1,0 +1,9 @@
+# 2026-02-28
+
+Set up SonarCloud for static analysis on the public repo — added the GitHub Actions workflow, sonar-project.properties config, and got it scanning both Rust and TypeScript on PRs and pushes to main. Bumped to sonarcloud-github-action v5 right after to stay current.
+
+The bigger story this week was the first live D&D session with friends. The app finally got used at the table for real, which is the whole reason it exists. One of the guys bought a cheap low-res projector and the light brightness values were way too strong for it — everything just washed out. That got me thinking about a global brightness multiplier (filed #50 for "projector mode"). I even went thrift store shopping and found a 40" TV for $40 at Goodwill, but then remembered I already have a 32" sitting in my basement. A flat TV under plexiglass in a wooden enclosure is probably the better play anyway — it's a common tabletop upgrade and way more adjustable than a projector. The whole experience has me rethinking the controls — a master brightness dimmer for lights and a master volume slider so you don't have to leave the app to adjust levels, especially for people who are photosensitive or just have different preferences.
+
+The best insight from the session was about atmosphere vs. music. Most environments only had ambient sounds, no Spotify playlist, and it turned out that was a feature, not a gap. Without background music, people naturally filled the space with more banter and roleplay, and the atmosphere sounds kept the scene immersive without being distracting. Then when combat hit and the battle music kicked in, it landed way harder because of the contrast. Going to be more intentional about which environments get music playlists going forward.
+
+Also filed #49 — a fart castle environment, just for laughs. Brown lights, yellow flashes, a dozen fart retrigger sounds. It'll be hilarious.

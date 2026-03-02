@@ -1,0 +1,3 @@
+# 2026-03-02
+
+Fixed a SoundEngine URL resolution bug where sounds weren't being found despite being in the manifest — the URL matching was too strict and broke on case differences. Repaired a couple of broken audio files while I was at it. Added the full set of SonarCloud badges to the README — quality gate, security, maintainability, reliability, bugs, and code smells. The quality gate is currently failing because of 0% test coverage on new code and 30% duplication against a 3% threshold, but the actual ratings are solid (A across security and maintainability). Ready to cut a release.

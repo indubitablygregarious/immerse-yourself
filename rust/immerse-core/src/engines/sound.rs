@@ -1,7 +1,8 @@
 //! Sound engine for playing audio files via kira.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::PlaybackState;
@@ -17,6 +18,8 @@ pub struct SoundEngine {
     cache_dir: PathBuf,
     user_content_dir: Option<PathBuf>,
     active_handles: Arc<Mutex<Vec<StaticSoundHandle>>>,
+    /// Sound manifest mapping freesound URLs to local file paths (bundled sounds).
+    manifest: Arc<RwLock<HashMap<String, PathBuf>>>,
     available: bool,
 }
 
@@ -40,6 +43,7 @@ impl SoundEngine {
             cache_dir,
             user_content_dir: None,
             active_handles: Arc::new(Mutex::new(Vec::new())),
+            manifest: Arc::new(RwLock::new(HashMap::new())),
             available,
         }
     }
@@ -47,6 +51,68 @@ impl SoundEngine {
     /// Sets the user content directory for fallback sound resolution.
     pub fn set_user_content_dir(&mut self, dir: PathBuf) {
         self.user_content_dir = Some(dir);
+    }
+
+    /// Loads a sound manifest for resolving freesound URLs to local bundled files.
+    pub fn load_manifest(&self, base_dir: &Path, manifest_path: &Path) {
+        match std::fs::read_to_string(manifest_path) {
+            Ok(contents) => {
+                match serde_json::from_str::<HashMap<String, String>>(&contents) {
+                    Ok(raw_manifest) => {
+                        let mut manifest = self.manifest.write().unwrap();
+                        let mut count = 0;
+                        for (url, rel_path) in raw_manifest {
+                            let abs_path = base_dir.join(&rel_path);
+                            if abs_path.exists() {
+                                manifest.insert(url, abs_path);
+                                count += 1;
+                            }
+                        }
+                        tracing::info!("SoundEngine: loaded manifest: {} entries from {:?}", count, manifest_path);
+                    }
+                    Err(e) => {
+                        tracing::warn!("SoundEngine: failed to parse manifest {:?}: {}", manifest_path, e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!("SoundEngine: no manifest at {:?}: {}", manifest_path, e);
+            }
+        }
+    }
+
+    /// Resolves a freesound URL to a local file path via manifest lookup,
+    /// falling back to cache dir lookup.
+    fn resolve_url(&self, url: &str) -> Option<PathBuf> {
+        let manifest = self.manifest.read().unwrap();
+        // Try exact match
+        if let Some(path) = manifest.get(url) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        // Try with trailing slash
+        let url_slash = if url.ends_with('/') { url.to_string() } else { format!("{}/", url) };
+        if let Some(path) = manifest.get(&url_slash) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        // Try without trailing slash
+        let url_noslash = url.trim_end_matches('/').to_string();
+        if let Some(path) = manifest.get(&url_noslash) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        drop(manifest);
+        // Fall back to checking cache dir by filename pattern
+        if let Some((creator, sound_id)) = parse_freesound_url(url) {
+            if let Some(path) = find_downloaded_file(&self.cache_dir, &creator, &sound_id) {
+                return Some(path);
+            }
+        }
+        None
     }
 
     /// Plays a sound file synchronously (blocks until complete).
@@ -295,17 +361,11 @@ impl SoundEngine {
         let path = if let Some(ref file) = sound.file {
             self.resolve_path(file)?
         } else if let Some(ref url) = sound.url {
-            // Look up in cache dir by freesound URL pattern
-            if let Some((creator, sound_id)) = parse_freesound_url(url) {
-                find_downloaded_file(&self.cache_dir, &creator, &sound_id)
-                    .ok_or_else(|| Error::SoundFileNotFound(format!(
-                        "Sound not found in cache for URL: {}", url
-                    )))?
-            } else {
-                return Err(Error::SoundFileNotFound(format!(
-                    "Not a valid freesound URL: {}", url
-                )));
-            }
+            // Look up via manifest (bundled sounds), then cache dir
+            self.resolve_url(url)
+                .ok_or_else(|| Error::SoundFileNotFound(format!(
+                    "Sound not found for URL: {}", url
+                )))?
         } else {
             return Err(Error::SoundConfNotFound(format!(
                 "Sound in {} has neither file nor url",

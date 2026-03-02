@@ -796,12 +796,13 @@ impl AppStateInner {
         let sound_engine = Arc::new(sound_engine);
         let atmosphere_engine = Arc::new(AtmosphereEngine::new_with_cache_dir(&cache_dir));
 
-        // Pass all manifests to the atmosphere engine (additive)
+        // Pass all manifests to both atmosphere and sound engines (additive)
         for (base_dir, label) in &manifest_locations {
             let manifest_path = base_dir.join("freesound_sounds").join("manifest.json");
             if manifest_path.exists() {
                 atmosphere_engine.load_manifest(base_dir, &manifest_path);
                 tracing::info!("Loaded sound manifest from {} ({} total entries)", label, atmosphere_engine.manifest_size());
+                sound_engine.load_manifest(base_dir, &manifest_path);
             }
         }
 

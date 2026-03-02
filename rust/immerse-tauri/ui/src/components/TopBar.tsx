@@ -114,8 +114,6 @@ export const TopBar: FC<TopBarProps> = ({
           activeLightsConfig={activeState?.active_lights_config ?? null}
           activeLightsIcon={activeLightsIcon}
           activeAtmosphereCount={activeState?.active_atmosphere_urls.length ?? 0}
-          isDownloading={activeState?.is_downloading ?? false}
-          pendingDownloads={activeState?.pending_downloads ?? 0}
           onLightsClick={onLightsClick}
         />
       </div>

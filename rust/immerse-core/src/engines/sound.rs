@@ -7,7 +7,7 @@ use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::PlaybackState;
 use kira::Tween;
 
-use crate::download_queue::{download_sound, find_downloaded_file, parse_freesound_url};
+use crate::sound_manifest::{find_downloaded_file, parse_freesound_url};
 use crate::engines::audio_output::{is_audio_available, volume_to_db, with_audio_manager};
 use crate::error::{Error, Result};
 
@@ -295,8 +295,17 @@ impl SoundEngine {
         let path = if let Some(ref file) = sound.file {
             self.resolve_path(file)?
         } else if let Some(ref url) = sound.url {
-            // Download the URL to cache if needed
-            self.download_sound_url(url)?
+            // Look up in cache dir by freesound URL pattern
+            if let Some((creator, sound_id)) = parse_freesound_url(url) {
+                find_downloaded_file(&self.cache_dir, &creator, &sound_id)
+                    .ok_or_else(|| Error::SoundFileNotFound(format!(
+                        "Sound not found in cache for URL: {}", url
+                    )))?
+            } else {
+                return Err(Error::SoundFileNotFound(format!(
+                    "Not a valid freesound URL: {}", url
+                )));
+            }
         } else {
             return Err(Error::SoundConfNotFound(format!(
                 "Sound in {} has neither file nor url",
@@ -309,35 +318,6 @@ impl SoundEngine {
             max_duration,
             fadeout,
         })
-    }
-
-    /// Downloads a sound from a URL to the cache directory.
-    /// Runs the download on a separate OS thread to avoid panicking when called
-    /// from within Tauri's Tokio runtime (reqwest::blocking creates its own runtime).
-    fn download_sound_url(&self, url: &str) -> Result<PathBuf> {
-        let cache_dir = &self.cache_dir;
-        std::fs::create_dir_all(cache_dir).ok();
-
-        // Check if already downloaded (using the standard naming convention)
-        if let Some((creator, sound_id)) = parse_freesound_url(url) {
-            if let Some(cached) = find_downloaded_file(cache_dir, &creator, &sound_id) {
-                tracing::info!("Sound already cached: {:?}", cached);
-                return Ok(cached);
-            }
-        }
-
-        // Must run on a plain OS thread — reqwest::blocking creates an internal
-        // Tokio runtime which panics if nested inside Tauri's runtime.
-        let cache_dir_owned = cache_dir.clone();
-        let url_owned = url.to_string();
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let _ = tx.send(download_sound(&url_owned, &cache_dir_owned));
-        });
-
-        rx.recv()
-            .map_err(|_| Error::SoundPlayback("Download thread failed".to_string()))?
-            .map_err(Error::SoundPlayback)
     }
 
     /// Returns the number of currently playing sounds.
@@ -427,42 +407,6 @@ mod tests {
 
         let result = engine.resolve_path("nonexistent.wav");
         assert!(matches!(result, Err(Error::SoundFileNotFound(_))));
-    }
-
-    /// Verifies that download_sound_url runs on a separate OS thread and doesn't
-    /// panic with "Cannot drop a runtime" when called inside an existing Tokio runtime.
-    #[test]
-    fn test_download_sound_url_no_nested_runtime_panic() {
-        // Create a Tokio runtime to simulate being called from within Tauri
-        let rt = tokio::runtime::Runtime::new().unwrap();
-
-        rt.block_on(async {
-            let temp_dir = TempDir::new().unwrap();
-            let engine = SoundEngine::new(temp_dir.path());
-
-            // This URL won't resolve (no network in tests), but the important thing
-            // is it doesn't panic with a nested runtime error. It should return an error.
-            let result = engine.download_sound_url("https://freesound.org/people/testuser/sounds/99999/");
-            assert!(result.is_err(), "Expected download error (no network), but should not panic");
-        });
-    }
-
-    #[test]
-    fn test_download_sound_url_returns_cached_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let cache_dir = temp_dir.path().join("freesound.org");
-        std::fs::create_dir_all(&cache_dir).unwrap();
-
-        // Create a fake cached file matching the freesound naming convention:
-        // find_downloaded_file expects "{creator}_{sound_id}_" prefix
-        let cached_file = cache_dir.join("testuser_12345_campfire.wav");
-        std::fs::write(&cached_file, b"fake audio data").unwrap();
-
-        let engine = SoundEngine::new(temp_dir.path());
-
-        let result = engine.download_sound_url("https://freesound.org/people/testuser/sounds/12345/");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), cached_file);
     }
 
     #[test]

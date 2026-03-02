@@ -131,8 +131,6 @@ export interface ActiveState {
   current_category: string;
   lights_available: boolean;
   spotify_available: boolean;
-  is_downloading: boolean;
-  pending_downloads: number;
   /** Available time variants for the active lights config.
    * Empty if no lights config is active or the config has no time variants. */
   available_times: string[];

@@ -4,8 +4,6 @@ interface NowPlayingWidgetProps {
   activeLightsConfig: string | null;
   activeLightsIcon?: string;
   activeAtmosphereCount: number;
-  isDownloading: boolean;
-  pendingDownloads: number;
   onLightsClick?: () => void;
 }
 
@@ -13,8 +11,6 @@ export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
   activeLightsConfig,
   activeLightsIcon,
   activeAtmosphereCount,
-  isDownloading,
-  pendingDownloads,
   onLightsClick,
 }) => {
   // Determine current state and display
@@ -22,10 +18,7 @@ export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
   let icon = '⏸';
   let isClickable = false;
 
-  if (isDownloading) {
-    statusText = `downloading (${pendingDownloads})`;
-    icon = '⬇️';
-  } else if (activeLightsConfig) {
+  if (activeLightsConfig) {
     statusText = activeLightsConfig;
     icon = activeLightsIcon || '💡';
     isClickable = true;
@@ -44,7 +37,7 @@ export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
     <div className="now-playing-widget">
       <span className="now-playing-title">now playing:</span>
       <div
-        className={`now-playing-content ${isClickable ? 'clickable' : ''} ${isDownloading ? 'downloading' : ''}`}
+        className={`now-playing-content ${isClickable ? 'clickable' : ''}`}
         onClick={handleClick}
       >
         <span className="now-playing-status">{statusText}</span>

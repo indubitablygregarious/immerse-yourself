@@ -24,10 +24,10 @@
 //! ```
 
 pub mod config;
-pub mod download_queue;
 pub mod engines;
 pub mod error;
 pub mod ffi;
+pub mod sound_manifest;
 
 pub use error::{Error, Result};
 

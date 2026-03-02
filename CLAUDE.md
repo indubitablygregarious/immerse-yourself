@@ -24,7 +24,7 @@ rust/
     src/
       config/             # YAML config loader, types, validator
       engines/            # Sound, Spotify, Lights, Atmosphere engines
-      download_queue.rs   # Freesound.org download management
+      sound_manifest.rs   # Freesound URL parsing, manifest loading, cache lookup
       ffi.rs              # Swift/iOS interop layer
   immerse-tauri/          # Tauri application
     src/
@@ -225,8 +225,8 @@ Sets up tracing, Tauri plugins, native File menu (Settings + Quit), registers al
 **`immerse-core` -- Shared Library**
 
 - `config/` -- `ConfigLoader`, `EnvironmentConfig`, `EnginesConfig`, time variant resolution
-- `engines/` -- `SoundEngine` (ffplay/aplay subprocess), `AtmosphereEngine` (looping ffplay with PulseAudio volume), `LightsEngine` (WIZ bulb async control), `SpotifyEngine` (OAuth + playback)
-- `download_queue.rs` -- Freesound URL parsing, manifest loading, sound cache lookup (runtime downloads disabled)
+- `engines/` -- `SoundEngine` (kira audio playback), `AtmosphereEngine` (kira looping with manifest-based URL resolution), `LightsEngine` (WIZ bulb async control), `SpotifyEngine` (OAuth + playback)
+- `sound_manifest.rs` -- Freesound URL parsing, manifest loading, sound cache lookup
 - `ffi.rs` -- C-compatible FFI for Swift/iOS interop
 
 ### Frontend (React TypeScript)

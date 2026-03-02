@@ -20,9 +20,6 @@ export const StatusBar: FC<StatusBarProps> = ({ activeState }) => {
 
   const lightsStatus = activeState?.active_lights_config || 'none';
 
-  const isDownloading = activeState?.is_downloading ?? false;
-  const downloadCount = activeState?.pending_downloads ?? 0;
-
   // Build detailed tooltip like Python app
   const tooltipLines: string[] = [];
 
@@ -63,13 +60,6 @@ export const StatusBar: FC<StatusBarProps> = ({ activeState }) => {
     tooltipLines.push('  (not active)');
   }
 
-  // Downloads section (if any)
-  if (downloadCount > 0) {
-    tooltipLines.push('');
-    tooltipLines.push('═══ Downloads ═══');
-    tooltipLines.push(`  📥 ${downloadCount} pending`);
-  }
-
   const tooltipText = tooltipLines.join('\n');
 
   return (
@@ -90,15 +80,6 @@ export const StatusBar: FC<StatusBarProps> = ({ activeState }) => {
         <span className="status-label">lights:</span>
         <span className="status-value">{lightsStatus}</span>
       </span>
-      {isDownloading && (
-        <>
-          <span className="status-separator">||</span>
-          <span className="status-item downloading">
-            <span className="status-label">downloading:</span>
-            <span className="status-value">{downloadCount}</span>
-          </span>
-        </>
-      )}
     </div>
   );
 };

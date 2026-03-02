@@ -1,4 +1,4 @@
-.PHONY: help clean setup dev dev-full sync-content build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
+.PHONY: help clean setup check-lfs dev dev-full sync-content build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
 
 help:
 	@echo "Immerse Yourself - Development Commands"
@@ -94,7 +94,24 @@ define ensure-tauri-cli
 		$(CARGO_BINSTALL) tauri-cli --no-confirm)
 endef
 
-dev:
+check-lfs:
+	@echo "Checking Git LFS audio files..."
+	@bad=0; \
+	for f in $$(find freesound_sounds -type f -name '*.mp3' -o -name '*.wav' -o -name '*.ogg' 2>/dev/null); do \
+		size=$$(wc -c < "$$f"); \
+		if [ "$$size" -lt 1024 ]; then \
+			echo "ERROR: $$f is only $$size bytes (LFS pointer?)"; \
+			bad=1; \
+		fi; \
+	done; \
+	if [ "$$bad" -eq 1 ]; then \
+		echo ""; \
+		echo "Audio files are Git LFS pointers. Run: git lfs pull"; \
+		exit 1; \
+	fi
+	@echo "All audio files OK"
+
+dev: check-lfs
 	$(ensure-tauri-cli)
 	@echo "Starting development server..."
 	cd $(TAURI_DIR)/ui && npm install && npm run dev &
@@ -129,7 +146,7 @@ sync-content: ## Copy all private repo content to user content dir (no build)
 	fi
 	@echo "Synced content from $(IMMERSE_PRIVATE_REPO) into $(USER_CONTENT_DIR)"
 
-build:
+build: check-lfs
 	$(ensure-tauri-cli)
 	@echo "Building application..."
 	cd $(TAURI_DIR)/ui && npm install && npm run build

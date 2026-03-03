@@ -6,10 +6,9 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::ptr;
-use std::sync::Arc;
 
-use crate::config::{ConfigLoader, EnvironmentConfig};
-use crate::engines::{AtmosphereEngine, LightsEngine, SoundEngine, SpotifyEngine};
+use crate::config::ConfigLoader;
+use crate::engines::{AtmosphereEngine, LightsEngine, SoundEngine};
 
 /// Opaque handle for ConfigLoader.
 pub struct FfiConfigLoader(ConfigLoader);
@@ -18,6 +17,7 @@ pub struct FfiConfigLoader(ConfigLoader);
 pub struct FfiSoundEngine(SoundEngine);
 
 /// Opaque handle for LightsEngine.
+#[allow(dead_code)] // Opaque handle placeholder — FFI functions not yet implemented
 pub struct FfiLightsEngine(tokio::sync::Mutex<LightsEngine>);
 
 /// Opaque handle for AtmosphereEngine.

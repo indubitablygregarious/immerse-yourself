@@ -1,4 +1,4 @@
-.PHONY: help clean setup dev dev-full sync-content build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
+.PHONY: help clean setup check-lfs dev dev-full sync-content build run test check trex ios-setup ios-init ios-dev ios-build ios-release ios-sim ios-open screenshot e2e e2e-build demo-build demo-record demo release release-dry-run release-ios release-ios-dry-run lint test-windows test-windows-status test-windows-screenshot
 
 help:
 	@echo "Immerse Yourself - Development Commands"
@@ -73,19 +73,46 @@ CARGO := $(shell which cargo-1.89 2>/dev/null || which cargo)
 TAURI_DIR = $(RUST_DIR)/immerse-tauri
 
 setup:
-	@echo "Installing Tauri CLI..."
-	$(CARGO) install tauri-cli
+	$(ensure-tauri-cli)
 	@echo "Configuring git hooks..."
 	git config core.hooksPath .githooks
 	@echo "Setup complete (Tauri CLI installed, git hooks configured)"
 
 TAURI_CARGO_WRAPPER = /tmp/cargo-wrapper
-CARGO_189 = /usr/lib/rust-1.89/bin/cargo
-RUSTC_189 = /usr/lib/rust-1.89/bin/rustc
+CARGO_189 := $(shell rustup which cargo --toolchain 1.89.0 2>/dev/null)
+RUSTC_189 := $(shell rustup which rustc --toolchain 1.89.0 2>/dev/null)
 CARGO_TAURI = $(HOME)/.cargo/bin/cargo-tauri
+CARGO_BINSTALL = $(HOME)/.cargo/bin/cargo-binstall
 
-dev:
-	@test -f $(CARGO_TAURI) || $(CARGO) install tauri-cli
+# Install cargo-binstall if missing, then install tauri-cli as a prebuilt binary.
+# This avoids compiling tauri-cli from source, which can trigger rustup download races.
+define ensure-tauri-cli
+	@test -f $(CARGO_TAURI) || ( \
+		test -f $(CARGO_BINSTALL) || (echo "Installing cargo-binstall..." && \
+			curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash) && \
+		echo "Installing Tauri CLI via binstall..." && \
+		$(CARGO_BINSTALL) tauri-cli --no-confirm)
+endef
+
+check-lfs:
+	@echo "Checking Git LFS audio files..."
+	@bad=0; \
+	for f in $$(find freesound_sounds -type f -name '*.mp3' -o -name '*.wav' -o -name '*.ogg' 2>/dev/null); do \
+		size=$$(wc -c < "$$f"); \
+		if [ "$$size" -lt 1024 ]; then \
+			echo "ERROR: $$f is only $$size bytes (LFS pointer?)"; \
+			bad=1; \
+		fi; \
+	done; \
+	if [ "$$bad" -eq 1 ]; then \
+		echo ""; \
+		echo "Audio files are Git LFS pointers. Run: git lfs pull"; \
+		exit 1; \
+	fi
+	@echo "All audio files OK"
+
+dev: check-lfs
+	$(ensure-tauri-cli)
 	@echo "Starting development server..."
 	cd $(TAURI_DIR)/ui && npm install && npm run dev &
 	@mkdir -p $(TAURI_CARGO_WRAPPER) && printf '#!/bin/bash\nRUSTC=$(RUSTC_189) exec $(CARGO_189) "$$@"\n' > $(TAURI_CARGO_WRAPPER)/cargo && chmod +x $(TAURI_CARGO_WRAPPER)/cargo
@@ -119,8 +146,8 @@ sync-content: ## Copy all private repo content to user content dir (no build)
 	fi
 	@echo "Synced content from $(IMMERSE_PRIVATE_REPO) into $(USER_CONTENT_DIR)"
 
-build:
-	@test -f $(CARGO_TAURI) || $(CARGO) install tauri-cli
+build: check-lfs
+	$(ensure-tauri-cli)
 	@echo "Building application..."
 	cd $(TAURI_DIR)/ui && npm install && npm run build
 	@mkdir -p $(TAURI_CARGO_WRAPPER) && printf '#!/bin/bash\nRUSTC=$(RUSTC_189) exec $(CARGO_189) "$$@"\n' > $(TAURI_CARGO_WRAPPER)/cargo && chmod +x $(TAURI_CARGO_WRAPPER)/cargo

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -14,8 +14,8 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 const STORAGE_KEY = 'immerse-theme';
 
 function getSystemTheme(): 'light' | 'dark' {
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (typeof globalThis.window !== 'undefined' && globalThis.matchMedia) {
+    return globalThis.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   return 'dark'; // Default to dark if no media query support
 }
@@ -28,7 +28,7 @@ function resolveTheme(theme: Theme): 'light' | 'dark' {
 }
 
 function getStoredTheme(): Theme {
-  if (typeof window !== 'undefined' && window.localStorage) {
+  if (typeof globalThis.window !== 'undefined' && globalThis.localStorage) {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
       return stored;
@@ -41,7 +41,7 @@ interface ThemeProviderProps {
   children: ReactNode;
 }
 
-export function ThemeProvider({ children }: ThemeProviderProps) {
+export function ThemeProvider({ children }: Readonly<ThemeProviderProps>) {
   const [theme, setThemeState] = useState<Theme>(getStoredTheme);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => resolveTheme(getStoredTheme()));
 
@@ -49,19 +49,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     const resolved = resolveTheme(theme);
     setResolvedTheme(resolved);
-    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.dataset.theme = resolved;
   }, [theme]);
 
   // Listen for system theme changes when in 'system' mode
   useEffect(() => {
     if (theme !== 'system') return;
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)');
 
     const handleChange = (e: MediaQueryListEvent) => {
       const resolved = e.matches ? 'dark' : 'light';
       setResolvedTheme(resolved);
-      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.dataset.theme = resolved;
     };
 
     mediaQuery.addEventListener('change', handleChange);
@@ -69,15 +69,17 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [theme]);
 
   // Persist theme to localStorage
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
-    if (typeof window !== 'undefined' && window.localStorage) {
+    if (typeof globalThis.window !== 'undefined' && globalThis.localStorage) {
       localStorage.setItem(STORAGE_KEY, newTheme);
     }
-  };
+  }, []);
+
+  const value = useMemo(() => ({ theme, setTheme, resolvedTheme }), [theme, setTheme, resolvedTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

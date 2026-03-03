@@ -16,7 +16,8 @@ use kira::{Semitones, Tween};
 
 use rand::Rng;
 
-use crate::download_queue::DownloadQueue;
+use std::sync::RwLock;
+
 use crate::engines::audio_output::{volume_to_db, with_audio_manager};
 use crate::error::{Error, Result};
 
@@ -42,7 +43,8 @@ struct RetriggerEntry {
 pub struct AtmosphereEngine {
     cache_dir: PathBuf,
     active_sounds: Arc<Mutex<HashMap<String, ActiveSound>>>,
-    download_queue: Arc<DownloadQueue>,
+    /// Sound manifest mapping freesound URLs to local file paths (bundled sounds).
+    manifest: Arc<RwLock<HashMap<String, PathBuf>>>,
     /// Generation counter - incremented on stop_all() to invalidate pending download callbacks.
     generation: Arc<AtomicU64>,
     /// Active sound pools — keyed by pool name. Monitor threads exit when their pool is removed.
@@ -75,13 +77,10 @@ impl AtmosphereEngine {
         // Ensure cache directory exists
         let _ = std::fs::create_dir_all(&cache_dir);
 
-        // Create download queue using the same cache dir
-        let download_queue = Arc::new(DownloadQueue::new(&cache_dir));
-
         Self {
             cache_dir,
             active_sounds: Arc::new(Mutex::new(HashMap::new())),
-            download_queue,
+            manifest: Arc::new(RwLock::new(HashMap::new())),
             generation: Arc::new(AtomicU64::new(0)),
             active_pools: Arc::new(Mutex::new(HashMap::new())),
             active_retriggers: Arc::new(Mutex::new(HashMap::new())),
@@ -116,43 +115,14 @@ impl AtmosphereEngine {
             }
         }
 
-        // Capture current generation
-        let start_generation = self.generation.load(Ordering::SeqCst);
-
-        let url_owned = url.to_string();
         let active_sounds = Arc::clone(&self.active_sounds);
-        let generation = Arc::clone(&self.generation);
 
-        // Check if cached first
-        if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, true, fade_duration, max_duration, None, start_offset);
+        // Resolve URL to local file path via manifest
+        if let Some(path) = self.resolve_url(url) {
+            return start_playback_internal(url, &path, volume, &active_sounds, true, fade_duration, max_duration, None, start_offset);
         }
 
-        // Not cached - queue download with callback to start playback
-        let volume_copy = volume;
-        self.download_queue.enqueue(url, move |result| {
-            let current_generation = generation.load(Ordering::SeqCst);
-            if current_generation != start_generation {
-                tracing::info!(
-                    "Skipping atmosphere sound {} - generation changed ({} -> {}), environment was switched",
-                    url_owned, start_generation, current_generation
-                );
-                return;
-            }
-
-            match result {
-                Ok(path) => {
-                    if let Err(e) = start_playback_internal(&url_owned, &path, volume_copy, &active_sounds, true, fade_duration, max_duration, None, start_offset) {
-                        tracing::warn!("Failed to start atmosphere sound after download: {}", e);
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to download atmosphere sound {}: {}", url_owned, e);
-                }
-            }
-        });
-
-        tracing::info!("Queued atmosphere sound for download: {} (generation {})", url, start_generation);
+        tracing::warn!("Atmosphere sound not found in manifest, skipping: {}", url);
         Ok(())
     }
 
@@ -196,7 +166,8 @@ impl AtmosphereEngine {
         let active_sounds = Arc::clone(&self.active_sounds);
         let active_pools = Arc::clone(&self.active_pools);
         let generation = Arc::clone(&self.generation);
-        let download_queue = Arc::clone(&self.download_queue);
+        let manifest = Arc::clone(&self.manifest);
+        let cache_dir = self.cache_dir.clone();
         let start_generation = self.generation.load(Ordering::SeqCst);
         let current_url = url;
 
@@ -210,7 +181,8 @@ impl AtmosphereEngine {
                     &active_sounds,
                     &active_pools,
                     &generation,
-                    &download_queue,
+                    &manifest,
+                    &cache_dir,
                 );
             })
             .map_err(|e| Error::AtmospherePlayback(format!("Failed to spawn pool monitor: {}", e)))?;
@@ -262,7 +234,8 @@ impl AtmosphereEngine {
         let active_sounds = Arc::clone(&self.active_sounds);
         let active_retriggers = Arc::clone(&self.active_retriggers);
         let generation = Arc::clone(&self.generation);
-        let download_queue = Arc::clone(&self.download_queue);
+        let manifest = Arc::clone(&self.manifest);
+        let cache_dir = self.cache_dir.clone();
         let paused = Arc::clone(&self.paused);
         let start_generation = self.generation.load(Ordering::SeqCst);
 
@@ -275,7 +248,8 @@ impl AtmosphereEngine {
                     &active_sounds,
                     &active_retriggers,
                     &generation,
-                    &download_queue,
+                    &manifest,
+                    &cache_dir,
                     &paused,
                 );
             })
@@ -297,27 +271,14 @@ impl AtmosphereEngine {
             }
         }
 
-        let url_owned = url.to_string();
         let active_sounds = Arc::clone(&self.active_sounds);
 
-        // Must be cached (pool sounds are pre-bundled)
-        if let Some(cached_path) = self.download_queue.enqueue_or_get_cached(url) {
-            return start_playback_internal(&url_owned, &cached_path, volume, &active_sounds, false, None, None, None, None);
+        // Resolve URL to local file path via manifest
+        if let Some(path) = self.resolve_url(url) {
+            return start_playback_internal(url, &path, volume, &active_sounds, false, None, None, None, None);
         }
 
-        // Queue download as fallback
-        let start_generation = self.generation.load(Ordering::SeqCst);
-        let generation = Arc::clone(&self.generation);
-        self.download_queue.enqueue(url, move |result| {
-            let current_generation = generation.load(Ordering::SeqCst);
-            if current_generation != start_generation {
-                return;
-            }
-            if let Ok(path) = result {
-                let _ = start_playback_internal(&url_owned, &path, volume, &active_sounds, false, None, None, None, None);
-            }
-        });
-
+        tracing::warn!("Pool sound not found in manifest, skipping: {}", url);
         Ok(())
     }
 
@@ -450,54 +411,78 @@ impl AtmosphereEngine {
         }
     }
 
-    /// Gets the number of pending downloads.
-    pub fn pending_downloads(&self) -> usize {
-        self.download_queue.pending_count()
-    }
-
-    /// Checks if a URL is currently being downloaded.
-    pub fn is_downloading(&self, url: &str) -> bool {
-        self.download_queue.is_downloading(url)
-    }
-
-    /// Gets all URLs currently being downloaded.
-    pub fn get_downloading_urls(&self) -> Vec<String> {
-        self.download_queue.get_downloading_urls()
+    /// Resolves a freesound URL to a local file path via the manifest.
+    /// Returns None if the URL is not in the manifest.
+    pub fn resolve_url(&self, url: &str) -> Option<PathBuf> {
+        let manifest = self.manifest.read().unwrap();
+        // Try exact match, with trailing slash, without trailing slash
+        if let Some(path) = manifest.get(url) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        let url_slash = if url.ends_with('/') { url.to_string() } else { format!("{}/", url) };
+        if let Some(path) = manifest.get(&url_slash) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        let url_noslash = url.trim_end_matches('/').to_string();
+        if let Some(path) = manifest.get(&url_noslash) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        // Fall back to checking cache dir by filename pattern
+        if let Some((creator, sound_id)) = crate::sound_manifest::parse_freesound_url(url) {
+            if let Some(path) = crate::sound_manifest::find_downloaded_file(&self.cache_dir, &creator, &sound_id) {
+                return Some(path);
+            }
+        }
+        None
     }
 
     /// Checks if a freesound URL is already cached locally.
     pub fn is_url_cached(&self, url: &str) -> bool {
-        self.download_queue.find_cached_public(url).is_some()
+        self.resolve_url(url).is_some()
     }
 
     /// Loads a sound manifest for resolving freesound URLs to local bundled files.
     pub fn load_manifest(&self, base_dir: &Path, manifest_path: &Path) {
-        self.download_queue.load_manifest(base_dir, manifest_path);
+        match std::fs::read_to_string(manifest_path) {
+            Ok(contents) => {
+                match serde_json::from_str::<HashMap<String, String>>(&contents) {
+                    Ok(raw_manifest) => {
+                        let mut manifest = self.manifest.write().unwrap();
+                        let mut count = 0;
+                        for (url, rel_path) in raw_manifest {
+                            let abs_path = base_dir.join(&rel_path);
+                            if abs_path.exists() {
+                                manifest.insert(url, abs_path);
+                                count += 1;
+                            }
+                        }
+                        tracing::info!("Loaded sound manifest: {} entries from {:?}", count, manifest_path);
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to parse sound manifest {:?}: {}", manifest_path, e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!("No sound manifest at {:?}: {}", manifest_path, e);
+            }
+        }
     }
 
     /// Returns the number of entries in the sound manifest.
     pub fn manifest_size(&self) -> usize {
-        self.download_queue.manifest_size()
+        self.manifest.read().unwrap().len()
     }
 
     /// Returns a snapshot of the current manifest (URL → absolute path).
     pub fn get_manifest(&self) -> HashMap<String, PathBuf> {
-        self.download_queue.get_manifest()
-    }
-
-    /// Sets whether on-demand downloads are enabled.
-    pub fn set_downloads_enabled(&self, enabled: bool) {
-        self.download_queue.set_downloads_enabled(enabled);
-    }
-
-    /// Returns whether on-demand downloads are enabled.
-    pub fn downloads_enabled(&self) -> bool {
-        self.download_queue.downloads_enabled()
-    }
-
-    /// Enqueues a URL for download without starting playback.
-    pub fn pre_download(&self, url: &str) -> bool {
-        self.download_queue.enqueue(url, |_| {})
+        self.manifest.read().unwrap().clone()
     }
 
     /// Pauses all currently playing sounds.
@@ -698,7 +683,8 @@ fn pool_monitor_loop(
     active_sounds: &Arc<Mutex<HashMap<String, ActiveSound>>>,
     active_pools: &Arc<Mutex<HashMap<String, PoolConfig>>>,
     generation: &Arc<AtomicU64>,
-    download_queue: &Arc<DownloadQueue>,
+    manifest: &Arc<RwLock<HashMap<String, PathBuf>>>,
+    cache_dir: &Path,
 ) {
     tracing::info!("Pool monitor started for '{}', playing: {}", pool_name, current_url);
 
@@ -762,15 +748,15 @@ fn pool_monitor_loop(
         };
         let volume = volumes.get(&next_url).copied().unwrap_or(70);
 
-        // Start next track (non-looping)
-        if let Some(cached_path) = download_queue.enqueue_or_get_cached(&next_url) {
-            if let Err(e) = start_playback_internal(&next_url, &cached_path, volume, active_sounds, false, None, None, None, None) {
+        // Start next track (non-looping) — resolve via manifest
+        let resolved = resolve_url_from_manifest(&next_url, manifest, cache_dir);
+        if let Some(path) = resolved {
+            if let Err(e) = start_playback_internal(&next_url, &path, volume, active_sounds, false, None, None, None, None) {
                 tracing::warn!("Pool '{}': failed to start next track: {}", pool_name, e);
                 return;
             }
         } else {
-            tracing::warn!("Pool '{}': track not cached, skipping: {}", pool_name, next_url);
-            // Try again next iteration with another track
+            tracing::warn!("Pool '{}': track not in manifest, skipping: {}", pool_name, next_url);
             continue;
         }
 
@@ -793,13 +779,36 @@ fn vary_volume(base: u8, variance: u8) -> u8 {
 /// Retrigger monitor loop — runs on a background thread. Waits a random delay
 /// before each trigger (including the first), then plays the sound with volume
 /// and pitch variation, polls for completion, and repeats.
+fn resolve_url_from_manifest(url: &str, manifest: &Arc<RwLock<HashMap<String, PathBuf>>>, cache_dir: &Path) -> Option<PathBuf> {
+    let m = manifest.read().unwrap();
+    if let Some(path) = m.get(url) {
+        if path.exists() { return Some(path.clone()); }
+    }
+    let url_slash = if url.ends_with('/') { url.to_string() } else { format!("{}/", url) };
+    if let Some(path) = m.get(&url_slash) {
+        if path.exists() { return Some(path.clone()); }
+    }
+    let url_noslash = url.trim_end_matches('/').to_string();
+    if let Some(path) = m.get(&url_noslash) {
+        if path.exists() { return Some(path.clone()); }
+    }
+    drop(m);
+    if let Some((creator, sound_id)) = crate::sound_manifest::parse_freesound_url(url) {
+        if let Some(path) = crate::sound_manifest::find_downloaded_file(cache_dir, &creator, &sound_id) {
+            return Some(path);
+        }
+    }
+    None
+}
+
 fn retrigger_monitor_loop(
     url: &str,
     start_generation: u64,
     active_sounds: &Arc<Mutex<HashMap<String, ActiveSound>>>,
     active_retriggers: &Arc<Mutex<HashMap<String, RetriggerEntry>>>,
     generation: &Arc<AtomicU64>,
-    download_queue: &Arc<DownloadQueue>,
+    manifest: &Arc<RwLock<HashMap<String, PathBuf>>>,
+    cache_dir: &Path,
     paused: &Arc<AtomicBool>,
 ) {
     tracing::info!("Retrigger monitor started for '{}'", url);
@@ -895,13 +904,13 @@ fn retrigger_monitor_loop(
             None
         };
 
-        if let Some(cached_path) = download_queue.enqueue_or_get_cached(url) {
-            if let Err(e) = start_playback_internal(url, &cached_path, varied_volume, active_sounds, false, None, None, pitch, start_offset) {
+        if let Some(path) = resolve_url_from_manifest(url, manifest, cache_dir) {
+            if let Err(e) = start_playback_internal(url, &path, varied_volume, active_sounds, false, None, None, pitch, start_offset) {
                 tracing::warn!("Retrigger '{}': failed to start playback: {}", url, e);
                 return;
             }
         } else {
-            tracing::warn!("Retrigger '{}': sound not cached, skipping", url);
+            tracing::warn!("Retrigger '{}': sound not in manifest, skipping", url);
             continue;
         }
 

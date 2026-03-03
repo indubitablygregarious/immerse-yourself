@@ -24,7 +24,7 @@ rust/
     src/
       config/             # YAML config loader, types, validator
       engines/            # Sound, Spotify, Lights, Atmosphere engines
-      download_queue.rs   # Freesound.org download management
+      sound_manifest.rs   # Freesound URL parsing, manifest loading, cache lookup
       ffi.rs              # Swift/iOS interop layer
   immerse-tauri/          # Tauri application
     src/
@@ -58,6 +58,12 @@ tests/
 .venv/                    # Python virtual environment for ruff (not in git)
 Makefile                  # Build commands (MUST use these, not cargo directly)
 ```
+
+## ABSOLUTE RULE: Rust 1.89 Toolchain is Pinned
+
+This project is pinned to **Rust 1.89** (`cargo-1.89`). Do NOT upgrade, change, or substitute the Rust version. Do NOT replace `cargo-1.89` references with plain `cargo`, `rustup run`, or direct paths like `/usr/lib/rust-1.89/bin/cargo`. Do NOT add `rust-toolchain.toml`, modify `Cargo.toml` edition/rust-version fields, or change Makefile `CARGO_189`/`RUSTC_189` paths to use a different version. The pinned version is intentional and changing it will break builds across all platforms (desktop, iOS, CI).
+
+If `cargo-1.89` is not installed, tell the user to install Rust 1.89 — do not work around it.
 
 ## Build System
 
@@ -219,8 +225,8 @@ Sets up tracing, Tauri plugins, native File menu (Settings + Quit), registers al
 **`immerse-core` -- Shared Library**
 
 - `config/` -- `ConfigLoader`, `EnvironmentConfig`, `EnginesConfig`, time variant resolution
-- `engines/` -- `SoundEngine` (ffplay/aplay subprocess), `AtmosphereEngine` (looping ffplay with PulseAudio volume), `LightsEngine` (WIZ bulb async control), `SpotifyEngine` (OAuth + playback)
-- `download_queue.rs` -- Freesound URL parsing, manifest loading, sound cache lookup (runtime downloads disabled)
+- `engines/` -- `SoundEngine` (kira audio playback), `AtmosphereEngine` (kira looping with manifest-based URL resolution), `LightsEngine` (WIZ bulb async control), `SpotifyEngine` (OAuth + playback)
+- `sound_manifest.rs` -- Freesound URL parsing, manifest loading, sound cache lookup
 - `ffi.rs` -- C-compatible FFI for Swift/iOS interop
 
 ### Frontend (React TypeScript)

@@ -22,10 +22,7 @@ engines:
     max_sounds: 5
     mix:
       # War drums
-      - url: "https://freesound.org/people/Mark_Murray/sounds/648393/"
       - url: "https://freesound.org/people/Infinita08/sounds/459561/"
-        optional: true
-        probability: 0.5
         volume: 50
 
       # Armor clanking/soldiers marching

@@ -1,10 +1,14 @@
-# Add to .claude/settings.json:
 {
   "hooks": {
-    "postToolUse": [
+    "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "command": "bash -c 'FILE=\"$CLAUDE_FILE\"; if [[ \"$FILE\" == *.rs ]]; then cargo-1.89 check --quiet 2>&1 | head -20; elif [[ \"$FILE\" == *.ts || \"$FILE\" == *.tsx ]]; then npx tsc --noEmit --pretty 2>&1 | head -20; fi'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=$(jq -r .tool_input.file_path); if [[ \"$FILE\" == *.rs ]]; then cd \"$CLAUDE_PROJECT_DIR/rust\" && cargo-1.89 check --quiet 2>&1 | head -20; elif [[ \"$FILE\" == *.ts || \"$FILE\" == *.tsx ]]; then cd \"$CLAUDE_PROJECT_DIR/rust/immerse-tauri/ui\" && npx tsc --noEmit --pretty 2>&1 | head -20; fi'"
+          }
+        ]
       }
     ]
   }

@@ -1,0 +1,3 @@
+# 2026-02-23
+
+Housekeeping day. Went through the codebase and replaced all hardcoded `/home/pete` paths with `~/` so nothing is tied to my local machine. Did the same in the strategy repo. Also set up expenses tracking on the strategy side and closed out the last branding and storefront issues from the week before.

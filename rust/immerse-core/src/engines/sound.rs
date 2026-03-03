@@ -1,13 +1,14 @@
 //! Sound engine for playing audio files via kira.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::PlaybackState;
 use kira::Tween;
 
-use crate::download_queue::{download_sound, find_downloaded_file, parse_freesound_url};
+use crate::sound_manifest::{find_downloaded_file, parse_freesound_url};
 use crate::engines::audio_output::{is_audio_available, volume_to_db, with_audio_manager};
 use crate::error::{Error, Result};
 
@@ -17,6 +18,8 @@ pub struct SoundEngine {
     cache_dir: PathBuf,
     user_content_dir: Option<PathBuf>,
     active_handles: Arc<Mutex<Vec<StaticSoundHandle>>>,
+    /// Sound manifest mapping freesound URLs to local file paths (bundled sounds).
+    manifest: Arc<RwLock<HashMap<String, PathBuf>>>,
     available: bool,
 }
 
@@ -40,6 +43,7 @@ impl SoundEngine {
             cache_dir,
             user_content_dir: None,
             active_handles: Arc::new(Mutex::new(Vec::new())),
+            manifest: Arc::new(RwLock::new(HashMap::new())),
             available,
         }
     }
@@ -47,6 +51,68 @@ impl SoundEngine {
     /// Sets the user content directory for fallback sound resolution.
     pub fn set_user_content_dir(&mut self, dir: PathBuf) {
         self.user_content_dir = Some(dir);
+    }
+
+    /// Loads a sound manifest for resolving freesound URLs to local bundled files.
+    pub fn load_manifest(&self, base_dir: &Path, manifest_path: &Path) {
+        match std::fs::read_to_string(manifest_path) {
+            Ok(contents) => {
+                match serde_json::from_str::<HashMap<String, String>>(&contents) {
+                    Ok(raw_manifest) => {
+                        let mut manifest = self.manifest.write().unwrap();
+                        let mut count = 0;
+                        for (url, rel_path) in raw_manifest {
+                            let abs_path = base_dir.join(&rel_path);
+                            if abs_path.exists() {
+                                manifest.insert(url, abs_path);
+                                count += 1;
+                            }
+                        }
+                        tracing::info!("SoundEngine: loaded manifest: {} entries from {:?}", count, manifest_path);
+                    }
+                    Err(e) => {
+                        tracing::warn!("SoundEngine: failed to parse manifest {:?}: {}", manifest_path, e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!("SoundEngine: no manifest at {:?}: {}", manifest_path, e);
+            }
+        }
+    }
+
+    /// Resolves a freesound URL to a local file path via manifest lookup,
+    /// falling back to cache dir lookup.
+    fn resolve_url(&self, url: &str) -> Option<PathBuf> {
+        let manifest = self.manifest.read().unwrap();
+        // Try exact match
+        if let Some(path) = manifest.get(url) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        // Try with trailing slash
+        let url_slash = if url.ends_with('/') { url.to_string() } else { format!("{}/", url) };
+        if let Some(path) = manifest.get(&url_slash) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        // Try without trailing slash
+        let url_noslash = url.trim_end_matches('/').to_string();
+        if let Some(path) = manifest.get(&url_noslash) {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        drop(manifest);
+        // Fall back to checking cache dir by filename pattern
+        if let Some((creator, sound_id)) = parse_freesound_url(url) {
+            if let Some(path) = find_downloaded_file(&self.cache_dir, &creator, &sound_id) {
+                return Some(path);
+            }
+        }
+        None
     }
 
     /// Plays a sound file synchronously (blocks until complete).
@@ -85,11 +151,18 @@ impl SoundEngine {
             .map_err(|e| Error::SoundPlayback(format!("Failed to load {}: {}", resolved.path.display(), e)))?
             .volume(volume_to_db(volume));
 
+        // Apply start_offset if configured (audio sprite sheet support)
+        let sound_data = if let Some(offset_ms) = resolved.start_offset {
+            sound_data.start_position(kira::sound::PlaybackPosition::Seconds(offset_ms as f64 / 1000.0))
+        } else {
+            sound_data
+        };
+
         let mut handle = with_audio_manager(|mgr| mgr.play(sound_data))
             .ok_or(Error::NoAudioPlayer)?
             .map_err(|e| Error::SoundPlayback(format!("{}", e)))?;
 
-        // Apply fadeout if configured (from sound_conf YAML)
+        // Apply duration/fadeout controls (from sound_conf YAML)
         if let Some(fadeout_ms) = resolved.fadeout {
             let wait_ms = if let Some(max_dur) = resolved.max_duration {
                 // Wait until (max_duration - fadeout) before starting fade
@@ -107,6 +180,12 @@ impl SoundEngine {
                     duration: std::time::Duration::from_millis(fadeout_ms as u64),
                     ..Default::default()
                 });
+            });
+        } else if let Some(max_dur) = resolved.max_duration {
+            // max_duration without fadeout: hard stop after duration
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(max_dur as u64));
+                handle.stop(Tween::default());
             });
         } else {
             if let Ok(mut handles) = self.active_handles.lock() {
@@ -198,6 +277,7 @@ impl SoundEngine {
             path: self.resolve_path(file)?,
             max_duration: None,
             fadeout: None,
+            start_offset: None,
         })
     }
 
@@ -290,13 +370,17 @@ impl SoundEngine {
         // Per-sound values override collection-level values
         let max_duration = sound.max_duration.or(conf.max_duration);
         let fadeout = sound.fadeout.or(conf.fadeout);
+        let start_offset = sound.start_offset.or(conf.start_offset);
 
         // Handle local file vs URL
         let path = if let Some(ref file) = sound.file {
             self.resolve_path(file)?
         } else if let Some(ref url) = sound.url {
-            // Download the URL to cache if needed
-            self.download_sound_url(url)?
+            // Look up via manifest (bundled sounds), then cache dir
+            self.resolve_url(url)
+                .ok_or_else(|| Error::SoundFileNotFound(format!(
+                    "Sound not found for URL: {}", url
+                )))?
         } else {
             return Err(Error::SoundConfNotFound(format!(
                 "Sound in {} has neither file nor url",
@@ -308,36 +392,8 @@ impl SoundEngine {
             path,
             max_duration,
             fadeout,
+            start_offset,
         })
-    }
-
-    /// Downloads a sound from a URL to the cache directory.
-    /// Runs the download on a separate OS thread to avoid panicking when called
-    /// from within Tauri's Tokio runtime (reqwest::blocking creates its own runtime).
-    fn download_sound_url(&self, url: &str) -> Result<PathBuf> {
-        let cache_dir = &self.cache_dir;
-        std::fs::create_dir_all(cache_dir).ok();
-
-        // Check if already downloaded (using the standard naming convention)
-        if let Some((creator, sound_id)) = parse_freesound_url(url) {
-            if let Some(cached) = find_downloaded_file(cache_dir, &creator, &sound_id) {
-                tracing::info!("Sound already cached: {:?}", cached);
-                return Ok(cached);
-            }
-        }
-
-        // Must run on a plain OS thread — reqwest::blocking creates an internal
-        // Tokio runtime which panics if nested inside Tauri's runtime.
-        let cache_dir_owned = cache_dir.clone();
-        let url_owned = url.to_string();
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let _ = tx.send(download_sound(&url_owned, &cache_dir_owned));
-        });
-
-        rx.recv()
-            .map_err(|_| Error::SoundPlayback("Download thread failed".to_string()))?
-            .map_err(Error::SoundPlayback)
     }
 
     /// Returns the number of currently playing sounds.
@@ -368,6 +424,7 @@ impl SoundEngine {
 
 /// Sound configuration file format.
 #[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)] // Fields present in YAML schema, deserialized but not accessed
 struct SoundConfConfig {
     #[serde(default)]
     name: String,
@@ -377,6 +434,8 @@ struct SoundConfConfig {
     max_duration: Option<u32>,
     /// Collection-level fadeout duration in ms (can be overridden per-sound).
     fadeout: Option<u32>,
+    /// Collection-level start offset in ms (can be overridden per-sound).
+    start_offset: Option<u32>,
     sounds: Vec<SoundEntry>,
 }
 
@@ -389,6 +448,8 @@ struct SoundEntry {
     max_duration: Option<u32>,
     /// Per-sound fadeout duration in ms (overrides collection-level).
     fadeout: Option<u32>,
+    /// Per-sound start offset in ms (overrides collection-level).
+    start_offset: Option<u32>,
 }
 
 /// A resolved sound with its file path and optional playback metadata.
@@ -398,6 +459,8 @@ struct ResolvedSound {
     max_duration: Option<u32>,
     /// Fadeout duration in ms.
     fadeout: Option<u32>,
+    /// Start position in ms (for audio sprite sheets).
+    start_offset: Option<u32>,
 }
 
 impl Drop for SoundEngine {
@@ -426,42 +489,6 @@ mod tests {
 
         let result = engine.resolve_path("nonexistent.wav");
         assert!(matches!(result, Err(Error::SoundFileNotFound(_))));
-    }
-
-    /// Verifies that download_sound_url runs on a separate OS thread and doesn't
-    /// panic with "Cannot drop a runtime" when called inside an existing Tokio runtime.
-    #[test]
-    fn test_download_sound_url_no_nested_runtime_panic() {
-        // Create a Tokio runtime to simulate being called from within Tauri
-        let rt = tokio::runtime::Runtime::new().unwrap();
-
-        rt.block_on(async {
-            let temp_dir = TempDir::new().unwrap();
-            let engine = SoundEngine::new(temp_dir.path());
-
-            // This URL won't resolve (no network in tests), but the important thing
-            // is it doesn't panic with a nested runtime error. It should return an error.
-            let result = engine.download_sound_url("https://freesound.org/people/testuser/sounds/99999/");
-            assert!(result.is_err(), "Expected download error (no network), but should not panic");
-        });
-    }
-
-    #[test]
-    fn test_download_sound_url_returns_cached_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let cache_dir = temp_dir.path().join("freesound.org");
-        std::fs::create_dir_all(&cache_dir).unwrap();
-
-        // Create a fake cached file matching the freesound naming convention:
-        // find_downloaded_file expects "{creator}_{sound_id}_" prefix
-        let cached_file = cache_dir.join("testuser_12345_campfire.wav");
-        std::fs::write(&cached_file, b"fake audio data").unwrap();
-
-        let engine = SoundEngine::new(temp_dir.path());
-
-        let result = engine.download_sound_url("https://freesound.org/people/testuser/sounds/12345/");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), cached_file);
     }
 
     #[test]

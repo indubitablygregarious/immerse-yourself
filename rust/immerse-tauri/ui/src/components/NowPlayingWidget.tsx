@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 
 interface NowPlayingWidgetProps {
-  activeLightsConfig: string | null;
+  activeEnvironment: string | null;
   activeLightsIcon?: string;
   activeAtmosphereCount: number;
   isDownloading: boolean;
@@ -10,7 +10,7 @@ interface NowPlayingWidgetProps {
 }
 
 export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
-  activeLightsConfig,
+  activeEnvironment,
   activeLightsIcon,
   activeAtmosphereCount,
   isDownloading,
@@ -25,8 +25,8 @@ export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
   if (isDownloading) {
     statusText = `downloading (${pendingDownloads})`;
     icon = '⬇️';
-  } else if (activeLightsConfig) {
-    statusText = activeLightsConfig;
+  } else if (activeEnvironment) {
+    statusText = activeEnvironment;
     icon = activeLightsIcon || '💡';
     isClickable = true;
   } else if (activeAtmosphereCount > 0) {

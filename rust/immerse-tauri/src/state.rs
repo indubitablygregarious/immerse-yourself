@@ -118,6 +118,7 @@ struct AppStateInner {
 
     // Current state
     current_category: String,
+    active_environment: Option<String>,
     active_lights_config: Option<String>,
     active_sound_name: Option<String>,
     active_atmosphere_urls: HashSet<String>,
@@ -152,6 +153,7 @@ struct AppStateInner {
 /// Active state snapshot for the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActiveState {
+    pub active_environment: Option<String>,
     pub active_lights_config: Option<String>,
     /// Name of the currently playing sound effect (entry sound or one-shot).
     /// None if no sound is currently playing.
@@ -594,6 +596,7 @@ impl AppState {
             categories.sort();
             inner.categories = categories;
             inner.needs_name_refresh = true;
+            inner.active_environment = None;
             inner.active_lights_config = None;
             inner.config_version += 1;
 
@@ -647,8 +650,8 @@ impl AppState {
         self.runtime.block_on(async {
             let mut inner = self.inner.lock().await;
 
-            // Compute available times for active lights config
-            let available_times = if let Some(ref config_name) = inner.active_lights_config {
+            // Compute available times for active environment (works with or without lights)
+            let available_times = if let Some(ref config_name) = inner.active_environment {
                 let times_info = inner.get_available_times(config_name);
                 times_info.times
             } else {
@@ -699,6 +702,7 @@ impl AppState {
                 .collect();
 
             ActiveState {
+                active_environment: inner.active_environment.clone(),
                 active_lights_config: inner.active_lights_config.clone(),
                 active_sound: inner.active_sound_name.clone(),
                 active_atmosphere_urls: inner.active_atmosphere_urls.iter().cloned().collect(),
@@ -1120,6 +1124,7 @@ impl AppStateInner {
             configs_by_category,
             categories,
             current_category,
+            active_environment: None,
             active_lights_config: None,
             active_sound_name: None,
             active_atmosphere_urls: HashSet::new(),
@@ -1667,6 +1672,9 @@ Content is loaded alongside built-in configs.
             return;
         }
 
+        // Track the active environment for UI identity (works even without lights)
+        self.active_environment = Some(config.name.clone());
+
         // Full environment: stop existing atmosphere EXCEPT user-toggled loop sounds.
         // This preserves loop sounds the user explicitly started via toggle_loop_sound,
         // while clearing environment-specific atmosphere sounds.
@@ -1968,6 +1976,7 @@ Content is loaded alongside built-in configs.
         self.active_atmosphere_urls.clear();
         self.atmosphere_volumes.clear();
         self.active_loop_urls.clear();
+        self.active_environment = None;
 
         // Pause Spotify - await directly instead of spawning
         if let Some(ref engine) = self.spotify_engine {

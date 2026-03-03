@@ -117,6 +117,7 @@ export interface EnvironmentConfig {
 }
 
 export interface ActiveState {
+  active_environment: string | null;
   active_lights_config: string | null;
   /** Name of the currently playing sound effect (entry sound or one-shot).
    * null if no sound is currently playing. */

@@ -55,15 +55,24 @@ export const TopBar: FC<TopBarProps> = ({
   mobileMenuOpen = false,
   onHamburgerClick,
 }) => {
-  // Find the icon and animation config for the active lights config
+  // Find the icon for the active environment (works without lights)
   let activeLightsIcon: string | undefined;
+  if (activeState?.active_environment) {
+    for (const configs of Object.values(allConfigs)) {
+      const config = configs.find(c => c.name === activeState.active_environment);
+      if (config) {
+        activeLightsIcon = config.icon;
+        break;
+      }
+    }
+  }
+
+  // Find the animation config for the active lights config (only relevant with lights)
   let activeLightsAnimation: AnimationConfig | null = null;
   if (activeState?.active_lights_config) {
     for (const configs of Object.values(allConfigs)) {
       const config = configs.find(c => c.name === activeState.active_lights_config);
       if (config) {
-        activeLightsIcon = config.icon;
-
         // Get base animation config
         let animation = config.engines.lights?.animation ?? null;
 
@@ -111,7 +120,7 @@ export const TopBar: FC<TopBarProps> = ({
 
       <div className="top-bar-right">
         <NowPlayingWidget
-          activeLightsConfig={activeState?.active_lights_config ?? null}
+          activeEnvironment={activeState?.active_environment ?? null}
           activeLightsIcon={activeLightsIcon}
           activeAtmosphereCount={activeState?.active_atmosphere_urls.length ?? 0}
           onLightsClick={onLightsClick}

@@ -1,14 +1,14 @@
 import type { FC } from 'react';
 
 interface NowPlayingWidgetProps {
-  activeLightsConfig: string | null;
+  activeEnvironment: string | null;
   activeLightsIcon?: string;
   activeAtmosphereCount: number;
   onLightsClick?: () => void;
 }
 
 export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
-  activeLightsConfig,
+  activeEnvironment,
   activeLightsIcon,
   activeAtmosphereCount,
   onLightsClick,
@@ -18,8 +18,8 @@ export const NowPlayingWidget: FC<NowPlayingWidgetProps> = ({
   let icon = '⏸';
   let isClickable = false;
 
-  if (activeLightsConfig) {
-    statusText = activeLightsConfig;
+  if (activeEnvironment) {
+    statusText = activeEnvironment;
     icon = activeLightsIcon || '💡';
     isClickable = true;
   } else if (activeAtmosphereCount > 0) {

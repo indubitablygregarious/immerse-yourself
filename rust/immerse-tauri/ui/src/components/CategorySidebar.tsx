@@ -101,9 +101,9 @@ function getActiveAtmosphereInfo(
         continue;
       }
     }
-    // Fallback: if this config is the active lights config and has atmosphere enabled,
+    // Fallback: if this config is the active environment and has atmosphere enabled,
     // treat it as having active atmosphere (covers URL serialization edge cases)
-    if (activeState.active_lights_config === config.name &&
+    if (activeState.active_environment === config.name &&
         config.engines?.atmosphere?.enabled) {
       configNames.push(config.name);
     }

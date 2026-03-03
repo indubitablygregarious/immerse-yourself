@@ -216,14 +216,14 @@ function AppContent() {
         return;
       }
 
-      // "5" shortcut to navigate to active lights config
+      // "5" shortcut to navigate to active environment
       if (e.key === '5' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        if (activeState?.active_lights_config) {
-          // Find the category containing the active lights config and navigate to it
+        if (activeState?.active_environment) {
+          // Find the category containing the active environment and navigate to it
           for (const [category, configs] of Object.entries(allConfigs)) {
-            if (configs.some(c => c.name === activeState.active_lights_config)) {
+            if (configs.some(c => c.name === activeState.active_environment)) {
               setCurrentCategory(category);
-              setHighlightedConfig(activeState.active_lights_config);
+              setHighlightedConfig(activeState.active_environment);
               setTimeout(() => setHighlightedConfig(null), 3000);
               break;
             }
@@ -267,7 +267,7 @@ function AppContent() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobileMode, categories, currentCategory, environments, searchQuery, searchResults, availableTimes, setCurrentCategory, toggleLoopSound, timeDialogOpen, activeState?.active_lights_config, allConfigs, handleSearch, searchFocusedIndex]);
+  }, [isMobileMode, categories, currentCategory, environments, searchQuery, searchResults, availableTimes, setCurrentCategory, toggleLoopSound, timeDialogOpen, activeState?.active_environment, allConfigs, handleSearch, searchFocusedIndex]);
 
   const displayedEnvironments = searchQuery ? searchResults : environments;
 
@@ -284,11 +284,11 @@ function AppContent() {
     setCurrentTime(time);
     await setBackendTime(time);
 
-    // If we have an active lights config, restart it with the new time variant
-    if (activeState?.active_lights_config) {
-      await startEnvironmentWithTime(activeState.active_lights_config, time);
+    // If we have an active environment, restart it with the new time variant
+    if (activeState?.active_environment) {
+      await startEnvironmentWithTime(activeState.active_environment, time);
     }
-  }, [setBackendTime, activeState?.active_lights_config, startEnvironmentWithTime]);
+  }, [setBackendTime, activeState?.active_environment, startEnvironmentWithTime]);
 
   // Handle environment click - check for time variants
   const handleEnvironmentClick = useCallback(async (config: EnvironmentConfig) => {
@@ -372,12 +372,12 @@ function AppContent() {
   const [highlightedConfig, setHighlightedConfig] = useState<string | null>(null);
 
   const handleLightsClick = useCallback(() => {
-    // Navigate to the category containing the active lights config
-    if (activeState?.active_lights_config) {
+    // Navigate to the category containing the active environment
+    if (activeState?.active_environment) {
       for (const [category, configs] of Object.entries(allConfigs)) {
-        if (configs.some(c => c.name === activeState.active_lights_config)) {
+        if (configs.some(c => c.name === activeState.active_environment)) {
           setCurrentCategory(category);
-          setHighlightedConfig(activeState.active_lights_config);
+          setHighlightedConfig(activeState.active_environment);
           // Clear highlight after animation
           setTimeout(() => setHighlightedConfig(null), 3000);
           break;

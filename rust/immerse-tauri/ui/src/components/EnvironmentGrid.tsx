@@ -40,7 +40,7 @@ export const EnvironmentGrid: FC<EnvironmentGridProps> = ({
         const isLoop = isLoopSound(config);
         const soundUrl = getSoundUrl(config);
 
-        const isLightsActive = activeState?.active_lights_config === config.name;
+        const isEnvironmentActive = activeState?.active_environment === config.name;
         const isLoopActive = isLoop && (activeState?.active_atmosphere_urls.includes(soundUrl) ?? false);
         const volume = activeState?.atmosphere_volumes[soundUrl] ?? 70;
         const shortcutKey = index < SHORTCUT_KEYS.length ? SHORTCUT_KEYS[index] : undefined;
@@ -64,7 +64,7 @@ export const EnvironmentGrid: FC<EnvironmentGridProps> = ({
           <EnvironmentButton
             key={config.name}
             config={config}
-            isActive={isLightsActive}
+            isActive={isEnvironmentActive}
             isLoopActive={isLoopActive}
             isFocused={isFocused}
             shortcutKey={shortcutKey}

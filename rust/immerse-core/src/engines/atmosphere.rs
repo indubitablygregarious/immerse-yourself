@@ -813,6 +813,8 @@ fn retrigger_monitor_loop(
 ) {
     tracing::info!("Retrigger monitor started for '{}'", url);
 
+    let mut first_trigger = true;
+
     loop {
         // --- Phase 1: Read config ---
         let entry_info = {
@@ -838,8 +840,15 @@ fn retrigger_monitor_loop(
         };
 
         // --- Phase 2: Wait random delay before triggering ---
+        // On first trigger, use a shorter delay (0..=min_delay) so sounds start
+        // firing within seconds of environment start, staggered naturally.
         let mut rng = rand::thread_rng();
-        let delay_secs = rng.gen_range(min_delay..=max_delay);
+        let delay_secs = if first_trigger {
+            rng.gen_range(0..=min_delay)
+        } else {
+            rng.gen_range(min_delay..=max_delay)
+        };
+        first_trigger = false;
         tracing::debug!("Retrigger '{}': waiting {}s before trigger", url, delay_secs);
         let mut remaining = delay_secs;
         while remaining > 0 {
